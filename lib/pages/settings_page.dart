@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import '../providers/forex_provider.dart';
 import '../providers/syp_provider.dart';
 import '../controllers/translation_controller.dart';
+import '../controllers/theme_controller.dart';
+import '../controllers/onboarding_controller.dart';
 import '../services/api_config_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -20,9 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
   
   // API Configuration controllers
   final _hostController = TextEditingController();
-  final _forexPortController = TextEditingController();
-  final _sypPortController = TextEditingController();
-  final _mt5PortController = TextEditingController();
+  // Ports are fixed: Forex = 5001, SYP = 5002
 
   @override
   void initState() {
@@ -36,16 +36,12 @@ class _SettingsPageState extends State<SettingsPage> {
       
       // Load current API configuration
       _hostController.text = ApiConfigService.sypApiHost;
-      _sypPortController.text = ApiConfigService.sypApiPort.toString();
     });
   }
 
   @override
   void dispose() {
     _hostController.dispose();
-    _forexPortController.dispose();
-    _sypPortController.dispose();
-    _mt5PortController.dispose();
     super.dispose();
   }
 
@@ -78,21 +74,22 @@ class _SettingsPageState extends State<SettingsPage> {
           
           const SizedBox(height: 16),
           
-          // Data Source Section
+          // Theme Section
           _buildSectionCard(
-            title: 'dataSource'.tr,
-            icon: Icons.data_usage,
+            title: 'theme'.tr,
+            icon: Icons.palette,
             children: [
-              SwitchListTile(
-                title: Text('useDemoData'.tr),
-                subtitle: Text('useSimulatedData'.tr),
-                value: _useDemoData,
-                onChanged: (value) {
-                  setState(() {
-                    _useDemoData = value;
-                  });
-                  final forexProvider = Get.find<ForexProvider>();
-                  // forexProvider.setUseDemoData(value); // Method not implemented yet
+              GetBuilder<ThemeController>(
+                builder: (themeController) {
+                  return ListTile(
+                    leading: Icon(themeController.themeIcon),
+                    title: Text('selectTheme'.tr),
+                    subtitle: Text(themeController.themeName),
+                    trailing: Switch(
+                      value: themeController.isDarkMode,
+                      onChanged: (_) => themeController.toggleTheme(),
+                    ),
+                  );
                 },
               ),
             ],
@@ -100,43 +97,18 @@ class _SettingsPageState extends State<SettingsPage> {
           
           const SizedBox(height: 16),
           
-          // Refresh Settings Section
+          // Onboarding Section
           _buildSectionCard(
-            title: 'Auto Refresh',
-            icon: Icons.refresh,
+            title: 'onboarding'.tr,
+            icon: Icons.school,
             children: [
-              SwitchListTile(
-                title: Text('autoRefreshData'.tr),
-                subtitle: Text('automaticallyRefreshData'.tr),
-                value: _autoRefresh,
-                onChanged: (value) {
-                  setState(() {
-                    _autoRefresh = value;
-                  });
-                },
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: Text('resetOnboarding'.tr),
+                subtitle: Text('resetOnboardingDescription'.tr),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () => _showResetOnboardingDialog(),
               ),
-              if (_autoRefresh) ...[
-                ListTile(
-                  title: Text('refreshInterval'.tr),
-                  subtitle: Text('${'every'.tr} $_refreshInterval ${'seconds'.tr}'),
-                  trailing: DropdownButton<int>(
-                    value: _refreshInterval,
-                    items: [
-                      DropdownMenuItem(value: 15, child: Text('15 ${'seconds'.tr}')),
-                      DropdownMenuItem(value: 30, child: Text('30 ${'seconds'.tr}')),
-                      DropdownMenuItem(value: 60, child: Text('1 ${'minute'.tr}')),
-                      DropdownMenuItem(value: 300, child: Text('5 ${'minutes'.tr}')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _refreshInterval = value;
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ],
             ],
           ),
           
@@ -144,7 +116,7 @@ class _SettingsPageState extends State<SettingsPage> {
           
           // Unified API Configuration
           _buildSectionCard(
-            title: 'API Configuration',
+            title: 'apiConfiguration'.tr,
             icon: Icons.api,
             children: [
               Padding(
@@ -152,9 +124,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '🌐 Server Configuration',
-                      style: TextStyle(
+                    Text(
+                      '🌐 ${'serverConfiguration'.tr}',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -164,88 +136,14 @@ class _SettingsPageState extends State<SettingsPage> {
                     // Single IP Configuration
                     TextField(
                       controller: _hostController,
-                      decoration: const InputDecoration(
-                        labelText: 'Server IP Address',
-                        border: OutlineInputBorder(),
-                        hintText: 'e.g., 192.168.1.100',
-                        prefixIcon: Icon(Icons.computer),
+                      decoration: InputDecoration(
+                        labelText: 'serverIpAddress'.tr,
+                        border: const OutlineInputBorder(),
+                        hintText: 'serverIpHint'.tr,
+                        prefixIcon: const Icon(Icons.computer),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '💡 How to find your laptop IP:',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 4),
-                          Text('• Windows: Run "ipconfig" in Command Prompt'),
-                          Text('• Mac/Linux: Run "ifconfig" in Terminal'),
-                          Text('• Look for your WiFi adapter IP (usually 192.168.x.x)'),
-                          Text('• Make sure your phone and laptop are on same WiFi'),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    const Text(
-                      '🔌 API Ports',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _forexPortController,
-                            decoration: const InputDecoration(
-                              labelText: 'Forex ML API',
-                              border: OutlineInputBorder(),
-                              hintText: '5001',
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _sypPortController,
-                            decoration: const InputDecoration(
-                              labelText: 'SYP API',
-                              border: OutlineInputBorder(),
-                              hintText: '5002',
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _mt5PortController,
-                            decoration: const InputDecoration(
-                              labelText: 'MT5 API',
-                              border: OutlineInputBorder(),
-                              hintText: '8080',
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
+         
                     const SizedBox(height: 20),
                     
                     Row(
@@ -254,7 +152,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           child: ElevatedButton.icon(
                             onPressed: _updateAllApiConfigs,
                             icon: const Icon(Icons.save),
-                            label: const Text('Update All APIs'),
+                            label: Text('updateAllApis'.tr),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -262,7 +160,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           child: OutlinedButton.icon(
                             onPressed: _testAllConnections,
                             icon: const Icon(Icons.wifi),
-                            label: const Text('Test All'),
+                            label: Text('testAll'.tr),
                           ),
                         ),
                       ],
@@ -274,9 +172,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: TextButton.icon(
                         onPressed: _resetApiConfigs,
                         icon: const Icon(Icons.refresh, color: Colors.red),
-                        label: const Text(
-                          'Reset to Defaults',
-                          style: TextStyle(color: Colors.red),
+                        label: Text(
+                          'resetToDefaults'.tr,
+                          style: const TextStyle(color: Colors.red),
                         ),
                       ),
                     ),
@@ -287,56 +185,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           
           const SizedBox(height: 16),
-          
-          // Paper Trading Settings Section
-          _buildSectionCard(
-            title: 'Paper Trading',
-            icon: Icons.games,
-            children: [
-              ListTile(
-                title: const Text('MetaTrader5 Demo Account'),
-                subtitle: const Text('Connect to MT5 demo account'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.settings),
-                  onPressed: () => _showMt5Settings(),
-                ),
-              ),
-              ListTile(
-                title: const Text('Reset Virtual Wallet'),
-                subtitle: const Text('Reset paper trading wallet to initial state'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.restart_alt),
-                  onPressed: () => _showResetWalletDialog(),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // App Info Section
-          _buildSectionCard(
-            title: 'App Information',
-            icon: Icons.info,
-            children: [
-              const ListTile(
-                title: Text('Version'),
-                subtitle: Text('1.0.0'),
-              ),
-              const ListTile(
-                title: Text('Build'),
-                subtitle: Text('Debug'),
-              ),
-              ListTile(
-                title: const Text('About'),
-                subtitle: const Text('SYP Forex App - Real-time forex and SYP trading'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.help_outline),
-                  onPressed: () => _showAboutDialog(),
-                ),
-              ),
-            ],
-          ),
+   
         ],
       ),
     );
@@ -373,34 +222,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
 
-  void _showMt5Settings() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('MetaTrader5 Settings'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('MT5 Demo Account Configuration:'),
-            SizedBox(height: 16),
-            Text('• Server: Demo Server'),
-            Text('• Login: [Your Demo Account]'),
-            Text('• Password: [Your Demo Password]'),
-            Text('• Connection: Local'),
-            SizedBox(height: 16),
-            Text('Note: This feature will be implemented to connect to your MT5 demo account for live paper trading.'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showResetWalletDialog() {
     showDialog(
@@ -435,9 +256,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _updateAllApiConfigs() {
     final host = _hostController.text.trim();
-    final forexPort = int.tryParse(_forexPortController.text.trim());
-    final sypPort = int.tryParse(_sypPortController.text.trim());
-    final mt5Port = int.tryParse(_mt5PortController.text.trim());
     
     if (!ApiConfigService.isValidHost(host)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -448,46 +266,15 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       return;
     }
-    
-    if (forexPort == null || !ApiConfigService.isValidPort(forexPort)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid Forex API port (must be 1-65535)'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    
-    if (sypPort == null || !ApiConfigService.isValidPort(sypPort)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid SYP API port (must be 1-65535)'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    
-    if (mt5Port == null || !ApiConfigService.isValidPort(mt5Port)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid MT5 API port (must be 1-65535)'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    
-    // Update all APIs with the same host
-    ApiConfigService.setForexApiConfig(host, forexPort);
-    ApiConfigService.setSypApiConfig(host, sypPort);
-    ApiConfigService.setMt5ApiConfig(host, mt5Port);
+
+    // Update all APIs with the same host and fixed ports
+    ApiConfigService.setForexApiConfig(host, 5001); // Fixed port
+    ApiConfigService.setSypApiConfig(host, 5002);   // Fixed port
     setState(() {});
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('All APIs updated: $host (Forex:$forexPort, SYP:$sypPort, MT5:$mt5Port)'),
+        content: Text('All APIs updated: $host (Forex:5001, SYP:5002)'),
         backgroundColor: Colors.green,
       ),
     );
@@ -496,9 +283,6 @@ class _SettingsPageState extends State<SettingsPage> {
   void _resetApiConfigs() {
     ApiConfigService.resetToDefaults();
     _hostController.text = ApiConfigService.forexApiHost;
-    _forexPortController.text = ApiConfigService.forexApiPort.toString();
-    _sypPortController.text = ApiConfigService.sypApiPort.toString();
-    _mt5PortController.text = ApiConfigService.mt5ApiPort.toString();
     setState(() {});
     
     ScaffoldMessenger.of(context).showSnackBar(
@@ -511,9 +295,6 @@ class _SettingsPageState extends State<SettingsPage> {
   
   Future<void> _testAllConnections() async {
     final host = _hostController.text.trim();
-    final forexPort = int.tryParse(_forexPortController.text.trim());
-    final sypPort = int.tryParse(_sypPortController.text.trim());
-    final mt5Port = int.tryParse(_mt5PortController.text.trim());
     
     if (host.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -543,41 +324,24 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       List<String> results = [];
       
-      // Test Forex API
-      if (forexPort != null) {
-        try {
-          final response = await http.get(
-            Uri.parse('http://$host:$forexPort/health'),
-            headers: {'Content-Type': 'application/json'},
-          ).timeout(const Duration(seconds: 5));
-          results.add('✅ Forex API: ${response.statusCode == 200 ? "Connected" : "Failed"}');
-        } catch (e) {
-          results.add('❌ Forex API: Connection failed');
-        }
+      // Test Forex API (Fixed port 5001)
+      try {
+        final response = await http.get(
+          Uri.parse('http://$host:5001/health'),
+          headers: {'Content-Type': 'application/json'},
+        ).timeout(const Duration(seconds: 5));
+        results.add('✅ Forex API (Port 5001): ${response.statusCode == 200 ? "Connected" : "Failed"}');
+      } catch (e) {
+        results.add('❌ Forex API (Port 5001): Connection failed');
       }
       
-      // Test SYP API
-      if (sypPort != null) {
-        try {
-          final sypProvider = Get.find<SypProvider>();
-          final isConnected = await sypProvider.testServerConnection();
-          results.add(isConnected ? '✅ SYP API: Connected' : '❌ SYP API: Failed');
-        } catch (e) {
-          results.add('❌ SYP API: Connection failed');
-        }
-      }
-      
-      // Test MT5 API
-      if (mt5Port != null) {
-        try {
-          final response = await http.get(
-            Uri.parse('http://$host:$mt5Port/mt5/connect'),
-            headers: {'Content-Type': 'application/json'},
-          ).timeout(const Duration(seconds: 5));
-          results.add('✅ MT5 API: ${response.statusCode == 200 ? "Connected" : "Failed"}');
-        } catch (e) {
-          results.add('❌ MT5 API: Connection failed');
-        }
+      // Test SYP API (Fixed port 5002)
+      try {
+        final sypProvider = Get.find<SypProvider>();
+        final isConnected = await sypProvider.testServerConnection();
+        results.add(isConnected ? '✅ SYP API (Port 5002): Connected' : '❌ SYP API (Port 5002): Failed');
+      } catch (e) {
+        results.add('❌ SYP API (Port 5002): Connection failed');
       }
       
       // Close loading dialog
@@ -618,6 +382,32 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+
+  void _showResetOnboardingDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('resetOnboarding'.tr),
+          content: Text('resetOnboardingConfirm'.tr),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('cancel'.tr),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                final onboardingController = Get.find<OnboardingController>();
+                onboardingController.resetOnboarding();
+              },
+              child: Text('reset'.tr),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _showLanguageDialog(BuildContext context, TranslationController translationController) {
     showDialog(

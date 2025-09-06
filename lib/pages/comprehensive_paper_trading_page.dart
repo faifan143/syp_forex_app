@@ -54,7 +54,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     final currentPrice = paperProvider.currentPrices[_selectedSymbol] ?? _currentPrice;
     if (stopLossPrice == null || stopLossPrice == 0.0 || currentPrice == 0.0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter Stop Loss and ensure price is available')),
+        SnackBar(content: Text('enterStopLossAndPrice'.tr)),
       );
       return;
     }
@@ -70,7 +70,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         pipSize;
     if (pipsToSL <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Stop Loss must be away from price')),
+        SnackBar(content: Text('stopLossMustBeAwayFromPrice'.tr)),
       );
       return;
     }
@@ -202,25 +202,25 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],
-            border: Border.all(color: Colors.grey[200]!),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isCompact = constraints.maxWidth < 700;
               final tiles = [
-                _kpiTile(icon: Icons.account_balance_wallet, label: 'Balance', value: balance, color: Colors.blue),
-                _kpiTile(icon: Icons.assessment, label: 'Equity', value: equity, color: Colors.indigo),
-                _kpiTile(icon: Icons.shield, label: 'Margin', value: margin, color: Colors.orange),
-                _kpiTile(icon: Icons.wallet_giftcard, label: 'Free', value: freeMargin, color: Colors.green),
+                _kpiTile(icon: Icons.account_balance_wallet, label: 'balance'.tr, value: balance, color: Colors.blue),
+                _kpiTile(icon: Icons.assessment, label: 'equity'.tr, value: equity, color: Colors.indigo),
+                _kpiTile(icon: Icons.shield, label: 'margin'.tr, value: margin, color: Colors.orange),
+                _kpiTile(icon: Icons.wallet_giftcard, label: 'free'.tr, value: freeMargin, color: Colors.green),
                 _levelTile(marginLevel, isMarginCall),
               ];
               if (isCompact) {
@@ -242,14 +242,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
         const SizedBox(height: 4),
         Text(
           value,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
-            color: valueColor ?? Colors.black,
+            color: valueColor ?? Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],
@@ -272,7 +272,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               Text('\$${value.toStringAsFixed(2)}', style: TextStyle(color: _darken(color), fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
@@ -314,7 +314,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('level'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('level'.tr, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
               Text('$display%', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
             ],
           ),
@@ -332,15 +332,15 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.grey[50]!, Colors.white],
+              colors: [Theme.of(context).colorScheme.surfaceVariant, Theme.of(context).colorScheme.surface],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey[200]!),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                 spreadRadius: 1,
                 blurRadius: 4,
                 offset: const Offset(0, 2),
@@ -360,22 +360,10 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                       spacing: 12,
                       runSpacing: 8,
                       children: [
-                        GetBuilder<PaperTradingProvider>(
-                          builder: (paper) => Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Switch(
-                                value: paper.realisticMode,
-                                onChanged: (_) => paper.toggleRealisticMode(),
-                              ),
-                              Text('realisticMode'.tr),
-                            ],
-                          ),
-                        ),
+                      
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('symbol'.tr + ': '),
                             ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxWidth: isTight ? 140 : 220,
@@ -416,9 +404,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                             return Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _buildQuoteBadge('Bid', bid, Colors.red[600]!),
+                                _buildQuoteBadge('bid'.tr, bid, Colors.red[600]!),
                                 const SizedBox(width: 8),
-                                _buildQuoteBadge('Ask', ask, Colors.green[600]!),
+                                _buildQuoteBadge('ask'.tr, ask, Colors.green[600]!),
                               ],
                             );
                           },
@@ -444,15 +432,15 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[50],
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                   border: Border(
-                    top: BorderSide(color: Colors.grey[200]!),
+                    top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
                   ),
                 ),
                 child: Column(
                   children: [
-                    const Text(
-                      'Timeframe',
+                    Text(
+                      'timeframe'.tr,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -532,11 +520,11 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                 spreadRadius: 2,
                 blurRadius: 8,
                 offset: const Offset(0, 2),
@@ -552,11 +540,12 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   children: [
                     Icon(Icons.trending_up, color: Colors.blue[600]),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Open New Position',
+                    Text(
+                      'openNewPosition'.tr,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -568,12 +557,15 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.blue[50]!, Colors.blue[100]!],
+                        colors: [
+                          Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue[200]!),
+                      border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -596,8 +588,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                                   color: Colors.green[100],
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: const Text(
-                                  'LIVE',
+                                child: Text(
+                                  'live'.tr,
                                   style: TextStyle(
                                     color: Colors.green,
                                     fontWeight: FontWeight.bold,
@@ -611,9 +603,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              _buildPriceCard('BID', bidPrice, Colors.red[600]!),
-                              _buildPriceCard('ASK', askPrice, Colors.green[600]!),
-                              _buildPriceCard('SPREAD', spread * 10000, Colors.orange[600]!),
+                              _buildPriceCard('bid'.tr, bidPrice, Colors.red[600]!),
+                              _buildPriceCard('ask'.tr, askPrice, Colors.green[600]!),
+                              _buildPriceCard('spread'.tr, spread * 10000, Colors.orange[600]!),
                             ],
                           ),
                         ],
@@ -628,7 +620,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   children: [
                     // Trading pair and position type in separate rows for better responsiveness
                     _buildEnhancedDropdown(
-                      'Trading Pair',
+                      'tradingPair'.tr,
                       _selectedSymbol,
                       forexProvider.availablePairs.map((pair) => pair['symbol']!).toList(),
                       (value) {
@@ -671,11 +663,11 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         return Container(
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                 spreadRadius: 2,
                 blurRadius: 8,
                 offset: const Offset(0, 2),
@@ -691,8 +683,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   children: [
                     Icon(Icons.trending_up, color: Colors.blue[600]),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Open Positions',
+                    Text(
+                      'openPositions'.tr,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -714,13 +706,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               if (positions.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(32),
-                  child: const Center(
+                  child: Center(
                     child: Column(
                       children: [
                         Icon(Icons.trending_up, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
                         Text(
-                          'No Open Positions',
+                          'noOpenPositions'.tr,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
@@ -729,7 +721,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'Open a position using the form above',
+                          'openPositionUsingForm'.tr,
                           style: TextStyle(color: Colors.grey),
                         ),
                       ],
@@ -761,11 +753,11 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         return Container(
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
                 spreadRadius: 2,
                 blurRadius: 8,
                 offset: const Offset(0, 2),
@@ -781,16 +773,16 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   children: [
                     Icon(Icons.history, color: Colors.blue[600]),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Trade History',
+                    Text(
+                      'tradeHistory'.tr,
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ),
               if (trades.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
+                Padding(
+                  padding: const EdgeInsets.all(24),
                   child: Center(
                     child: Text('noTradeHistory'.tr, style: const TextStyle(color: Colors.grey)),
                   ),
@@ -876,11 +868,11 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   ),
                 ),
                 // Chart control buttons
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: _buildChartControls(),
-                ),
+                // Positioned(
+                //   top: 8,
+                //   right: 8,
+                //   child: _buildChartControls(),
+                // ),
               ],
             );
           },
@@ -955,7 +947,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.red[200]!),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -966,7 +958,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
             ),
             SizedBox(height: 16),
             Text(
-              'Failed to load chart data',
+              'failedToLoadChartData'.tr,
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.red,
@@ -994,7 +986,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue[600] : Colors.white,
+          color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? Colors.blue[600]! : Colors.grey[300]!,
@@ -1014,7 +1006,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : Colors.grey[700],
+            color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ),
@@ -1089,7 +1081,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           onPressed: () {
             _chartKey.currentState?.resetView();
           },
-          tooltip: 'Reset View',
+          tooltip: 'resetView'.tr,
         ),
         const SizedBox(width: 8),
         _buildControlButton(
@@ -1097,7 +1089,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           onPressed: () {
             _chartKey.currentState?.zoomIn();
           },
-          tooltip: 'Zoom In',
+          tooltip: 'zoomIn'.tr,
         ),
         const SizedBox(width: 8),
         _buildControlButton(
@@ -1105,7 +1097,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           onPressed: () {
             _chartKey.currentState?.zoomOut();
           },
-          tooltip: 'Zoom Out',
+          tooltip: 'zoomOut'.tr,
         ),
         const SizedBox(width: 8),
         _buildControlButton(
@@ -1114,7 +1106,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
             // Toggle fullscreen or maximize chart
             _showFullscreenChart();
           },
-          tooltip: 'Fullscreen',
+          tooltip: 'fullscreen'.tr,
         ),
         const SizedBox(width: 8),
         _buildControlButton(
@@ -1122,7 +1114,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           onPressed: () {
             _showChartHelp();
           },
-          tooltip: 'Chart Help',
+          tooltip: 'chartHelp'.tr,
         ),
       ],
     );
@@ -1146,7 +1138,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           onPressed: onPressed,
           icon: Icon(
             icon,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             size: 18,
           ),
           padding: EdgeInsets.zero,
@@ -1159,7 +1151,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Chart Controls'),
+        title: Text('chartControls'.tr),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1181,7 +1173,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got it!'),
+            child: Text('gotIt'.tr),
           ),
         ],
       ),
@@ -1194,7 +1186,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       builder: (context) => Dialog.fullscreen(
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('Chart - Fullscreen'),
+            title: Text('chartFullscreen'.tr),
             leading: IconButton(
               icon: const Icon(Icons.close),
               onPressed: () => Navigator.pop(context),
@@ -1303,12 +1295,12 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Position Type',
+        Text(
+          'positionType'.tr,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 12),
@@ -1318,7 +1310,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
             children: [
               Expanded(
                 child: _buildPositionTypeButton(
-                  'BUY',
+                  'buy'.tr,
                   PositionType.buy,
                   Colors.green,
                   Icons.trending_up,
@@ -1327,7 +1319,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               const SizedBox(width: 12),
               Expanded(
                 child: _buildPositionTypeButton(
-                  'SELL',
+                  'sell'.tr,
                   PositionType.sell,
                   Colors.red,
                   Icons.trending_down,
@@ -1364,7 +1356,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.white : color,
+              color: isSelected ? Theme.of(context).colorScheme.onPrimary : color,
               size: 18,
             ),
             const SizedBox(width: 6),
@@ -1374,7 +1366,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : color,
+                  color: isSelected ? Theme.of(context).colorScheme.onPrimary : color,
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -1390,14 +1382,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-                      const Text(
-          'Volume (Lots)',
+                      Text(
+          'volumeLots'.tr,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-                      ),
+        ),
                       const SizedBox(height: 8),
         TextFormField(
           controller: _volumeController,
@@ -1408,7 +1400,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               borderRadius: BorderRadius.circular(12),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            suffixIcon: Icon(Icons.analytics, color: Colors.blue[600]),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+            suffixIcon: Icon(Icons.analytics, color: Theme.of(context).colorScheme.primary),
           ),
         ),
         const SizedBox(height: 12),
@@ -1424,6 +1418,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                     borderRadius: BorderRadius.circular(12),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                   suffixIcon: const Icon(Icons.percent),
                 ),
               ),
@@ -1431,7 +1427,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
             const SizedBox(width: 8),
             ElevatedButton(
               onPressed: _calculatePositionSizeFromRisk,
-              child: const Text('Calc Lots'),
+              child: Text('calcLots'.tr),
             ),
           ],
         ),
@@ -1447,8 +1443,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           children: [
             Icon(Icons.shield, color: Colors.orange[600], size: 20),
             const SizedBox(width: 8),
-            const Text(
-              'Risk Management',
+            Text(
+              'riskManagement'.tr,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -1469,12 +1465,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                     controller: _stopLossController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'Stop Loss',
-                      hintText: 'Optional',
+                      labelText: 'stopLoss'.tr,
+                      hintText: 'optional'.tr,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1482,20 +1480,22 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                     controller: _takeProfitController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'Take Profit',
-                      hintText: 'Optional',
+                      labelText: 'takeProfit'.tr,
+                      hintText: 'optional'.tr,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _commentController,
                     decoration: InputDecoration(
-                      labelText: 'Comment',
-                      hintText: 'Optional trade comment',
+                      labelText: 'comment'.tr,
+                      hintText: 'optionalTradeComment'.tr,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1515,8 +1515,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                           controller: _stopLossController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
-                            labelText: 'Stop Loss',
-                            hintText: 'Optional',
+                            labelText: 'stopLoss'.tr,
+                            hintText: 'optional'.tr,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1530,8 +1530,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                           controller: _takeProfitController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
-                            labelText: 'Take Profit',
-                            hintText: 'Optional',
+                            labelText: 'takeProfit'.tr,
+                            hintText: 'optional'.tr,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1545,8 +1545,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   TextFormField(
                     controller: _commentController,
                     decoration: InputDecoration(
-                      labelText: 'Comment',
-                      hintText: 'Optional trade comment',
+                      labelText: 'comment'.tr,
+                      hintText: 'optionalTradeComment'.tr,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1577,13 +1577,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   },
                   icon: const Icon(Icons.trending_up, color: Colors.white, size: 18),
                   label: Text(
-                    'BUY ${_selectedSymbol}',
+                    '${'buy'.tr} ${_selectedSymbol}',
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[600],
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1600,13 +1600,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   },
                   icon: const Icon(Icons.trending_down, color: Colors.white, size: 18),
                   label: Text(
-                    'SELL ${_selectedSymbol}',
+                    '${'sell'.tr} ${_selectedSymbol}',
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[600],
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1627,13 +1627,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   },
                   icon: const Icon(Icons.trending_up, color: Colors.white, size: 18),
                   label: Text(
-                    'BUY ${_selectedSymbol}',
+                    '${'buy'.tr} ${_selectedSymbol}',
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[600],
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1649,13 +1649,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   },
                   icon: const Icon(Icons.trending_down, color: Colors.white, size: 18),
                   label: Text(
-                    'SELL ${_selectedSymbol}',
+                    '${'sell'.tr} ${_selectedSymbol}',
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[600],
-                    foregroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -1694,7 +1694,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${_selectedType == PositionType.buy ? 'Buy' : 'Sell'} position opened for ${_selectedSymbol}'),
+        content: Text('${_selectedType == PositionType.buy ? 'buyPositionOpened'.tr : 'sellPositionOpened'.tr} ${_selectedSymbol}'),
         backgroundColor: _selectedType == PositionType.buy ? Colors.green : Colors.red,
       ),
     );
@@ -1786,7 +1786,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => _modifyPosition(position, paperProvider),
-                    child: const Text('Modify'),
+                    child: Text('modify'.tr),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1795,9 +1795,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                     onPressed: () => _closePosition(position, paperProvider),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     ),
-                    child: const Text('Close'),
+                    child: Text('close'.tr),
                   ),
                 ),
               ],
@@ -1827,8 +1827,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     
     if (currentPrice == 0.0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to get current price'),
+        SnackBar(
+          content: Text('unableToGetCurrentPrice'.tr),
           backgroundColor: Colors.red,
         ),
       );
@@ -1839,8 +1839,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     
     if (paperProvider.error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Position closed successfully'),
+        SnackBar(
+          content: Text('positionClosedSuccessfully'.tr),
           backgroundColor: Colors.green,
         ),
       );
@@ -1866,24 +1866,24 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         );
         
         return AlertDialog(
-          title: Text('Modify ${position.symbol}'),
+          title: Text('${'modifyPosition'.tr} ${position.symbol}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: stopLossController,
-                decoration: const InputDecoration(
-                  labelText: 'Stop Loss',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'stopLoss'.tr,
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: takeProfitController,
-                decoration: const InputDecoration(
-                  labelText: 'Take Profit',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'takeProfit'.tr,
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
               ),
@@ -1892,7 +1892,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: Text('cancel'.tr),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -1909,8 +1909,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 
                 if (paperProvider.error == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Position modified successfully'),
+                    SnackBar(
+                      content: Text('positionModifiedSuccessfully'.tr),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -1923,7 +1923,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   );
                 }
               },
-              child: const Text('Modify'),
+              child: Text('modify'.tr),
             ),
           ],
         );
@@ -1977,8 +1977,8 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
   void resetView() {
     setState(() {
       _scale = 1.0;
-      _panX = 0.0;
-      _panY = 0.0;
+      _panX = 0.0; // Always keep pan values at 0 - no panning allowed
+      _panY = 0.0; // Always keep pan values at 0 - no panning allowed
       _showPriceOverlay = false;
       _crosshairPosition = null;
       _selectedCandleIndex = null;
@@ -2003,13 +2003,15 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
         // Scale = total candles / target candles
         _scale = totalCandles / targetCandles;
         
-        // Calculate pan to position at the last targetCandles
-        final startIndex = totalCandles - targetCandles;
-        final candleSpacing = availableWidth / totalCandles;
-        final startPosition = startIndex * candleSpacing;
+        // DISABLED: Pan positioning - axes are now fixed
+        // Chart will always show the most recent candles without panning
+        // final startIndex = totalCandles - targetCandles;
+        // final candleSpacing = availableWidth / totalCandles;
+        // final startPosition = startIndex * candleSpacing;
         
-        // Pan to show the last 20 candles (move left to show recent data)
-        _panX = -startPosition;
+        // Keep pan values at 0 - no panning allowed
+        _panX = 0.0;
+        _panY = 0.0;
       }
       
       _initialized = true;
@@ -2052,7 +2054,7 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
       onTapCancel: _onTapCancel,
       onDoubleTap: () => zoomIn(),
       onScaleStart: _onScaleStart,
-      onScaleUpdate: _onScaleUpdate,
+      onScaleUpdate: _onScaleUpdate, // Only zooming allowed, panning disabled
       onScaleEnd: _onScaleEnd,
       // Use deferToChild to allow vertical scrolling to pass through to page
       behavior: HitTestBehavior.deferToChild,
@@ -2070,6 +2072,11 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
               showSlowMA: widget.showSlowMA,
               fastMAPeriod: widget.fastMAPeriod,
               slowMAPeriod: widget.slowMAPeriod,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              gridColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+              textColor: Theme.of(context).colorScheme.onSurface,
+              crosshairColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+              crosshairDotColor: Theme.of(context).colorScheme.onSurface,
             ),
             size: widget.size,
           ),
@@ -2077,25 +2084,25 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
             _buildPriceOverlay(),
           
           // Debug info overlay
-          Positioned(
-            top: 8,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'Scale: ${_scale.toStringAsFixed(2)}\nPan: (${_panX.toStringAsFixed(1)}, ${_panY.toStringAsFixed(1)})',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-          ),
+          // Positioned(
+          //   top: 8,
+          //   left: 8,
+          //   child: Container(
+          //     padding: const EdgeInsets.all(8),
+          //     decoration: BoxDecoration(
+          //       color: Colors.black.withOpacity(0.7),
+          //       borderRadius: BorderRadius.circular(4),
+          //     ),
+          //     child: Text(
+          //       'Scale: ${_scale.toStringAsFixed(2)}\nPan: (${_panX.toStringAsFixed(1)}, ${_panY.toStringAsFixed(1)})',
+          //       style: const TextStyle(
+          //         color: Colors.white,
+          //         fontSize: 10,
+          //         fontFamily: 'monospace',
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );
@@ -2116,15 +2123,16 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
         _previousScale = details.scale;
       }
       
-      // Handle pan (translation) - use focal point delta
-      final deltaPan = details.focalPoint - _previousFocalPoint;
+      // DISABLED: Pan (translation) - chart axes are now fixed
+      // Only allow zooming, no panning allowed
+      // final deltaPan = details.focalPoint - _previousFocalPoint;
       // Damp pan speed slightly to keep control
-      _panX += deltaPan.dx * 0.9;
-      _panY += deltaPan.dy;
+      // _panX += deltaPan.dx * 0.9;
+      // _panY += deltaPan.dy;
       _previousFocalPoint = details.focalPoint;
       
       // Debug print
-      print('Scale: $_scale, PanX: $_panX, PanY: $_panY, Details.scale: ${details.scale}');
+      print('Scale: $_scale, PanX: $_panX (FIXED), PanY: $_panY (FIXED), Details.scale: ${details.scale}');
     });
   }
 
@@ -2212,13 +2220,13 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
               ),
             ),
             const SizedBox(height: 4),
-            _buildPriceRow('Open', candle['open']!, Colors.white),
-            _buildPriceRow('High', candle['high']!, Colors.green),
-            _buildPriceRow('Low', candle['low']!, Colors.red),
-            _buildPriceRow('Close', candle['close']!, isGreen ? Colors.green : Colors.red),
+            _buildPriceRow('open'.tr, candle['open']!, Theme.of(context).colorScheme.onSurface),
+            _buildPriceRow('high'.tr, candle['high']!, Colors.green),
+            _buildPriceRow('low'.tr, candle['low']!, Colors.red),
+            _buildPriceRow('close'.tr, candle['close']!, isGreen ? Colors.green : Colors.red),
             const SizedBox(height: 4),
             Text(
-              isGreen ? '↗ Bullish' : '↘ Bearish',
+              isGreen ? '↗ ${'bullish'.tr}' : '↘ ${'bearish'.tr}',
               style: TextStyle(
                 color: isGreen ? Colors.green : Colors.red,
                 fontWeight: FontWeight.bold,
@@ -2470,6 +2478,11 @@ class InteractiveCandlestickPainter extends CustomPainter {
   final bool showSlowMA;
   final int fastMAPeriod;
   final int slowMAPeriod;
+  final Color backgroundColor;
+  final Color gridColor;
+  final Color textColor;
+  final Color crosshairColor;
+  final Color crosshairDotColor;
   
   InteractiveCandlestickPainter({
     required this.candles,
@@ -2482,6 +2495,11 @@ class InteractiveCandlestickPainter extends CustomPainter {
     this.showSlowMA = true,
     this.fastMAPeriod = 20,
     this.slowMAPeriod = 50,
+    required this.backgroundColor,
+    required this.gridColor,
+    required this.textColor,
+    required this.crosshairColor,
+    required this.crosshairDotColor,
   });
   
   @override
@@ -2652,7 +2670,7 @@ class InteractiveCandlestickPainter extends CustomPainter {
   
   void _drawProfessionalGridLines(Canvas canvas, Size size, double padding, double minPrice, double maxPrice, double scaleY) {
     final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.2)
+      ..color = gridColor.withOpacity(0.2)
       ..strokeWidth = 0.5;
     
     final availableHeight = size.height - (padding * 2);
@@ -2762,7 +2780,7 @@ class InteractiveCandlestickPainter extends CustomPainter {
   
   void _drawCrosshair(Canvas canvas, Size size, Offset position) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.8)
+      ..color = crosshairColor.withOpacity(0.8)
       ..strokeWidth = 1.0;
     
     // Draw vertical line
@@ -2780,7 +2798,7 @@ class InteractiveCandlestickPainter extends CustomPainter {
     );
     
     // Draw center dot
-    paint.color = Colors.white;
+    paint.color = crosshairDotColor;
     paint.style = PaintingStyle.fill;
     canvas.drawCircle(position, 3, paint);
   }

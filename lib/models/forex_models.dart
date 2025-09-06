@@ -47,6 +47,149 @@ class ForexRate {
   }
 }
 
+// Dashboard Models for 7-day predictions
+class ForexDashboardResponse {
+  final String status;
+  final String timestamp;
+  final int totalCurrencies;
+  final DashboardFeatures features;
+  final List<ForexCurrency> currencies;
+
+  ForexDashboardResponse({
+    required this.status,
+    required this.timestamp,
+    required this.totalCurrencies,
+    required this.features,
+    required this.currencies,
+  });
+
+  factory ForexDashboardResponse.fromJson(Map<String, dynamic> json) {
+    return ForexDashboardResponse(
+      status: json['status'] ?? '',
+      timestamp: json['timestamp'] ?? '',
+      totalCurrencies: json['total_currencies'] ?? 0,
+      features: DashboardFeatures.fromJson(json['features'] ?? {}),
+      currencies: (json['currencies'] as List?)
+          ?.map((currency) => ForexCurrency.fromJson(currency))
+          .toList() ?? [],
+    );
+  }
+}
+
+class DashboardFeatures {
+  final bool sevenDayPredictions;
+  final bool tomorrowPredictions;
+  final bool weekPredictions;
+  final bool predictionTrends;
+
+  DashboardFeatures({
+    required this.sevenDayPredictions,
+    required this.tomorrowPredictions,
+    required this.weekPredictions,
+    required this.predictionTrends,
+  });
+
+  factory DashboardFeatures.fromJson(Map<String, dynamic> json) {
+    return DashboardFeatures(
+      sevenDayPredictions: json['7_day_predictions'] ?? false,
+      tomorrowPredictions: json['tomorrow_predictions'] ?? false,
+      weekPredictions: json['week_predictions'] ?? false,
+      predictionTrends: json['prediction_trends'] ?? false,
+    );
+  }
+}
+
+class ForexCurrency {
+  final String currency;
+  final String pair;
+  final double currentValue;
+  final double yesterdayValue;
+  final double dailyChange;
+  final double dailyChangePercent;
+  final String trend;
+  final double tomorrowPrediction;
+  final double weekPrediction;
+  final double predictionChange;
+  final double predictionChangePercent;
+  final double weekChange;
+  final double weekChangePercent;
+  final String predictionTrend;
+  final String weekTrend;
+  final List<double> forecast7Days;
+  final String dataSource;
+  final String lastUpdated;
+
+  ForexCurrency({
+    required this.currency,
+    required this.pair,
+    required this.currentValue,
+    required this.yesterdayValue,
+    required this.dailyChange,
+    required this.dailyChangePercent,
+    required this.trend,
+    required this.tomorrowPrediction,
+    required this.weekPrediction,
+    required this.predictionChange,
+    required this.predictionChangePercent,
+    required this.weekChange,
+    required this.weekChangePercent,
+    required this.predictionTrend,
+    required this.weekTrend,
+    required this.forecast7Days,
+    required this.dataSource,
+    required this.lastUpdated,
+  });
+
+  factory ForexCurrency.fromJson(Map<String, dynamic> json) {
+    return ForexCurrency(
+      currency: json['currency'] ?? '',
+      pair: json['pair'] ?? '',
+      currentValue: (json['current_value'] ?? 0.0).toDouble(),
+      yesterdayValue: (json['yesterday_value'] ?? 0.0).toDouble(),
+      dailyChange: (json['daily_change'] ?? 0.0).toDouble(),
+      dailyChangePercent: (json['daily_change_percent'] ?? 0.0).toDouble(),
+      trend: json['trend'] ?? 'stable',
+      tomorrowPrediction: (json['tomorrow_prediction'] ?? 0.0).toDouble(),
+      weekPrediction: (json['week_prediction'] ?? 0.0).toDouble(),
+      predictionChange: (json['prediction_change'] ?? 0.0).toDouble(),
+      predictionChangePercent: (json['prediction_change_percent'] ?? 0.0).toDouble(),
+      weekChange: (json['week_change'] ?? 0.0).toDouble(),
+      weekChangePercent: (json['week_change_percent'] ?? 0.0).toDouble(),
+      predictionTrend: json['prediction_trend'] ?? 'stable',
+      weekTrend: json['week_trend'] ?? 'stable',
+      forecast7Days: (json['forecast_7_days'] as List?)
+          ?.map((e) => (e ?? 0.0).toDouble())
+          .toList()
+          .cast<double>() ?? [],
+      dataSource: json['data_source'] ?? '',
+      lastUpdated: json['last_updated'] ?? '',
+    );
+  }
+
+  // Helper methods
+  bool get isUp => trend == 'up';
+  bool get isDown => trend == 'down';
+  bool get isStable => trend == 'stable';
+  
+  bool get tomorrowIsUp => predictionTrend == 'up';
+  bool get tomorrowIsDown => predictionTrend == 'down';
+  bool get weekIsUp => weekTrend == 'up';
+  bool get weekIsDown => weekTrend == 'down';
+  
+  String get formattedCurrentValue => currentValue.toStringAsFixed(4);
+  String get formattedTomorrowPrediction => tomorrowPrediction.toStringAsFixed(4);
+  String get formattedWeekPrediction => weekPrediction.toStringAsFixed(4);
+  
+  String get formattedDailyChange => dailyChange >= 0 ? '+${dailyChange.toStringAsFixed(4)}' : dailyChange.toStringAsFixed(4);
+  String get formattedDailyChangePercent => dailyChangePercent >= 0 ? '+${dailyChangePercent.toStringAsFixed(2)}%' : '${dailyChangePercent.toStringAsFixed(2)}%';
+  
+  String get formattedPredictionChange => predictionChange >= 0 ? '+${predictionChange.toStringAsFixed(4)}' : predictionChange.toStringAsFixed(4);
+  String get formattedPredictionChangePercent => predictionChangePercent >= 0 ? '+${predictionChangePercent.toStringAsFixed(2)}%' : '${predictionChangePercent.toStringAsFixed(2)}%';
+  
+  String get formattedWeekChange => weekChange >= 0 ? '+${weekChange.toStringAsFixed(4)}' : weekChange.toStringAsFixed(4);
+  String get formattedWeekChangePercent => weekChangePercent >= 0 ? '+${weekChangePercent.toStringAsFixed(2)}%' : '${weekChangePercent.toStringAsFixed(2)}%';
+}
+
 class Candlestick {
   final DateTime timestamp;
   final double open;

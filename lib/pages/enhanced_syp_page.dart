@@ -40,15 +40,15 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               Text('syrianPound'.tr),
             ],
           ),
-          backgroundColor: Colors.green[700],
-          foregroundColor: Colors.white,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () {
                 final sypProvider = Get.find<SypProvider>();
-                sypProvider.loadCurrentRates();
-                sypProvider.loadForecast();
+                sypProvider.loadCurrentRates(forceRefresh: true);
+                sypProvider.loadForecast(forceRefresh: true);
               },
               tooltip: 'refresh'.tr,
             ),
@@ -71,7 +71,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
                 const SizedBox(height: 16),
                 Text('Error: ${sypProvider.error}'),
                 const SizedBox(height: 16),
@@ -102,7 +102,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               // Main Rate Card
               Card(
                 elevation: 4,
-                color: Colors.green[50],
+                color: Theme.of(context).colorScheme.surface,
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -120,9 +120,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                                 ),
                               ),
                               Text(
-                                'Black Market Rate',
+                                'blackMarketRate'.tr,
                                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.grey[600],
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -138,9 +138,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                                 ),
                               ),
                               Text(
-                                'SYP per USD',
+                                'sypPerUsd'.tr,
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey[600],
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -151,9 +151,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildRateInfo('Ask', currentRates.currentRates.ask, Colors.red[600]!),
-                          _buildRateInfo('Bid', currentRates.currentRates.bid, Colors.green[600]!),
-                          _buildRateInfo('Spread', currentRates.currentRates.spread, Colors.orange),
+                          _buildRateInfo('ask'.tr, currentRates.currentRates.ask, Colors.red[600]!),
+                          _buildRateInfo('bid'.tr, currentRates.currentRates.bid, Colors.green[600]!),
+                          _buildRateInfo('spread'.tr, currentRates.currentRates.spread, Colors.orange),
                         ],
                       ),
                     ],
@@ -171,7 +171,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Daily Change',
+                        'dailyChange'.tr,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -219,7 +219,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Trading Data',
+                        'tradingData'.tr,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -227,10 +227,10 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          Expanded(child: _buildOhlcvInfo('Open', currentRates.ohlcv.open)),
-                          Expanded(child: _buildOhlcvInfo('High', currentRates.ohlcv.high)),
-                          Expanded(child: _buildOhlcvInfo('Low', currentRates.ohlcv.low)),
-                          Expanded(child: _buildOhlcvInfo('Close', currentRates.ohlcv.close)),
+                          Expanded(child: _buildOhlcvInfo('open'.tr, currentRates.ohlcv.open)),
+                          Expanded(child: _buildOhlcvInfo('high'.tr, currentRates.ohlcv.high)),
+                          Expanded(child: _buildOhlcvInfo('low'.tr, currentRates.ohlcv.low)),
+                          Expanded(child: _buildOhlcvInfo('close'.tr, currentRates.ohlcv.close)),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -265,7 +265,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                           Icon(Icons.location_city, color: Colors.green[700]),
                           const SizedBox(width: 8),
                           Text(
-                            'City Comparison',
+                            'cityComparison'.tr,
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -290,8 +290,8 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                       Icon(Icons.update, color: Colors.grey[600]),
                       const SizedBox(width: 8),
                       Text(
-                        'Last updated: ${_formatDateTime(currentRates.timestamp)}',
-                        style: TextStyle(color: Colors.grey[600]),
+                        '${'lastUpdated'.tr}: ${_formatDateTime(currentRates.timestamp)}',
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -303,7 +303,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               // Forecast Section
               if (forecast != null) ...[
                 Card(
-                  color: Colors.blue[50],
+                  color: Theme.of(context).colorScheme.surface,
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -314,7 +314,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                             Icon(Icons.psychology, color: Colors.blue[700]),
                             const SizedBox(width: 8),
                             Text(
-                              'Tomorrow\'s Forecast',
+                              'tomorrowsForecast'.tr,
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -329,8 +329,8 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Predicted Rate',
-                                  style: TextStyle(color: Colors.grey[600]),
+                                  'predictedRate'.tr,
+                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                                 ),
                                 Text(
                                   forecast.prediction.rate.toStringAsFixed(2),
@@ -345,8 +345,8 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  'Expected Change',
-                                  style: TextStyle(color: Colors.grey[600]),
+                                  'expectedChange'.tr,
+                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                                 ),
                                 Text(
                                   '${forecast.prediction.expectedChange.toStringAsFixed(2)} SYP',
@@ -365,7 +365,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                           children: [
                             Text('confidence'.tr + ':'),
                             Text(
-                              '${forecast.prediction.confidenceInterval.rangePct.toStringAsFixed(1)}% range',
+                              '${forecast.prediction.confidenceInterval.rangePct.toStringAsFixed(1)}% ${'range'.tr}',
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -391,9 +391,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
   Widget _buildCityComparison(currentRates) {
     // Simulate city data - in real app this would come from API
     final cities = [
-      {'name': 'Aleppo', 'rate': currentRates.currentRates.mid, 'change': 0.27},
-      {'name': 'Damascus', 'rate': currentRates.currentRates.mid + 5, 'change': 0.31},
-      {'name': 'Idlib', 'rate': currentRates.currentRates.mid - 3, 'change': 0.22},
+      {'name': 'aleppo'.tr, 'rate': currentRates.currentRates.mid, 'change': 0.27},
+      {'name': 'damascus'.tr, 'rate': currentRates.currentRates.mid + 5, 'change': 0.31},
+      {'name': 'idlib'.tr, 'rate': currentRates.currentRates.mid - 3, 'change': 0.22},
     ];
     
     return Column(
@@ -442,7 +442,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                currentRates.currentRates.change >= 0 ? 'BULLISH' : 'BEARISH',
+                currentRates.currentRates.change >= 0 ? 'bullish'.tr : 'bearish'.tr,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
@@ -458,7 +458,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
           children: [
             Text('volatility'.tr + ':'),
             Text(
-              currentRates.ohlcv.dayType == 'calm' ? 'Low' : 'Normal',
+              currentRates.ohlcv.dayType == 'calm' ? 'low'.tr : 'normal'.tr,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
@@ -467,7 +467,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Spread:'),
+            Text('spread'.tr + ':'),
             Text(
               '${currentRates.currentRates.spread.toStringAsFixed(2)} SYP',
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -481,7 +481,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             children: [
               Text('tomorrowOutlook'.tr + ':'),
               Text(
-                forecast.prediction.expectedChange >= 0 ? 'Positive' : 'Negative',
+                forecast.prediction.expectedChange >= 0 ? 'positive'.tr : 'negative'.tr,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: forecast.prediction.expectedChange >= 0 ? Colors.green : Colors.red,
@@ -539,7 +539,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     final difference = now.difference(dateTime);
     
     if (difference.inMinutes < 1) {
-      return 'Just now';
+      return 'justNow'.tr;
     } else if (difference.inMinutes < 60) {
       return '${difference.inMinutes}m ago';
     } else if (difference.inHours < 24) {

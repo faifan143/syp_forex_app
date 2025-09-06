@@ -3,30 +3,49 @@ import 'dart:developer' as developer;
 import 'dart:async';
 import '../models/forex_models.dart';
 import '../services/market_simulation_service.dart';
+import '../services/forex_dashboard_api_service.dart';
 
 class ForexProvider extends GetxController {
   String _selectedPair = 'EUR/USD';
   String _selectedTimeframe = 'daily';
   ForexChartData? _chartData;
   Map<String, ForexRate> _forexRates = {};
+  ForexDashboardResponse? _dashboardData;
   bool _isLoadingChart = false;
   bool _isLoadingRates = false;
+  bool _isLoadingDashboard = false;
   String? _chartError;
   String? _ratesError;
+  String? _dashboardError;
   Timer? _refreshTimer;
   
-  // Market simulation service
+  // Caching
+  DateTime? _lastDashboardFetch;
+  DateTime? _lastRatesFetch;
+  static const Duration _cacheDuration = Duration(minutes: 5); // Cache for 5 minutes
+  
+  // Services
   final MarketSimulationService _marketService = MarketSimulationService();
+  final ForexDashboardApiService _dashboardService = ForexDashboardApiService();
 
   // Getters
   String get selectedPair => _selectedPair;
   String get selectedTimeframe => _selectedTimeframe;
   ForexChartData? get chartData => _chartData;
   Map<String, ForexRate> get forexRates => _forexRates;
+  ForexDashboardResponse? get dashboardData => _dashboardData;
   bool get isLoadingChart => _isLoadingChart;
   bool get isLoadingRates => _isLoadingRates;
+  bool get isLoadingDashboard => _isLoadingDashboard;
   String? get chartError => _chartError;
   String? get ratesError => _ratesError;
+  String? get dashboardError => _dashboardError;
+  
+  // Cache checking methods
+  bool get isDashboardCacheValid => _lastDashboardFetch != null && 
+      DateTime.now().difference(_lastDashboardFetch!) < _cacheDuration;
+  bool get isRatesCacheValid => _lastRatesFetch != null && 
+      DateTime.now().difference(_lastRatesFetch!) < _cacheDuration;
 
   // Available pairs and timeframes (hardcoded for simulation)
   List<Map<String, String>> get availablePairs => [
@@ -68,7 +87,13 @@ class ForexProvider extends GetxController {
   }
 
   // Load simulated forex rates
-  Future<void> loadForexRates() async {
+  Future<void> loadForexRates({bool forceRefresh = false}) async {
+    // Check cache first
+    if (!forceRefresh && isRatesCacheValid && _forexRates.isNotEmpty) {
+      developer.log('Using cached forex rates', name: 'ForexProvider');
+      return;
+    }
+
     _isLoadingRates = true;
     _ratesError = null;
     update();
@@ -98,11 +123,49 @@ class ForexProvider extends GetxController {
       }
       
       _forexRates = rates;
+      _lastRatesFetch = DateTime.now(); // Update cache timestamp
       _isLoadingRates = false;
       update();
     } catch (e) {
       _ratesError = 'Failed to load simulated forex rates: $e';
       _isLoadingRates = false;
+      update();
+    }
+  }
+
+  // Load forex dashboard with 7-day predictions
+  Future<void> loadForexDashboard({bool forceRefresh = false}) async {
+    // Check cache first
+    if (!forceRefresh && isDashboardCacheValid && _dashboardData != null) {
+      developer.log('Using cached dashboard data', name: 'ForexProvider');
+      return;
+    }
+
+    _isLoadingDashboard = true;
+    _dashboardError = null;
+    update();
+
+    try {
+      developer.log('Loading forex dashboard...', name: 'ForexProvider');
+      
+      // Add timeout wrapper for the entire operation
+      final dashboardResponse = await _dashboardService.getForexDashboard().timeout(
+        const Duration(seconds: 90), // 90 seconds total timeout
+        onTimeout: () {
+          throw TimeoutException('Dashboard request timed out after 90 seconds', const Duration(seconds: 90));
+        },
+      );
+      
+      _dashboardData = dashboardResponse;
+      _lastDashboardFetch = DateTime.now(); // Update cache timestamp
+      
+      developer.log('Dashboard loaded: ${dashboardResponse.currencies.length} currencies', name: 'ForexProvider');
+      update();
+    } catch (e) {
+      _dashboardError = 'Failed to load dashboard: $e';
+      developer.log('Error loading dashboard: $e', name: 'ForexProvider');
+    } finally {
+      _isLoadingDashboard = false;
       update();
     }
   }
@@ -159,6 +222,7 @@ class ForexProvider extends GetxController {
     _refreshTimer?.cancel();
     _refreshTimer = null;
   }
+
 
   @override
   void dispose() {

@@ -4,11 +4,14 @@ import 'providers/syp_provider.dart';
 import 'providers/forex_provider.dart';
 import 'providers/paper_trading_provider.dart';
 import 'controllers/translation_controller.dart';
+import 'controllers/theme_controller.dart';
+import 'controllers/onboarding_controller.dart';
 import 'translations/app_translations.dart';
 import 'pages/home_page.dart';
 import 'pages/enhanced_syp_page.dart';
 import 'pages/comprehensive_paper_trading_page.dart';
 import 'pages/settings_page.dart';
+import 'pages/onboarding_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,11 +28,18 @@ class SypForexApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
+        brightness: Brightness.light,
       ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+        useMaterial3: true,
+        brightness: Brightness.dark,
+      ),
+      themeMode: ThemeMode.system, // Will be overridden by ThemeController
       translations: AppTranslations(),
       locale: const Locale('en', ''),
       fallbackLocale: const Locale('en', ''),
-      home: const MainNavigationPage(),
+      home: const AppInitializer(),
       debugShowCheckedModeBanner: false,
       initialBinding: AppBinding(),
     );
@@ -41,9 +51,28 @@ class AppBinding extends Bindings {
   @override
   void dependencies() {
     Get.put(TranslationController());
+    Get.put(OnboardingController());
+    Get.put(ThemeController());
     Get.put(SypProvider());
     Get.put(ForexProvider());
     Get.put(PaperTradingProvider());
+  }
+}
+
+class AppInitializer extends StatelessWidget {
+  const AppInitializer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final onboardingController = Get.find<OnboardingController>();
+    
+    return Obx(() {
+      if (onboardingController.isOnboardingCompleted) {
+        return const MainNavigationPage();
+      } else {
+        return const OnboardingPage();
+      }
+    });
   }
 }
 

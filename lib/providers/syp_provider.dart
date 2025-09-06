@@ -9,6 +9,11 @@ class SypProvider extends GetxController {
   
   bool _isLoading = false;
   String? _error;
+  
+  // Caching
+  DateTime? _lastRatesFetch;
+  DateTime? _lastForecastFetch;
+  static const Duration _cacheDuration = Duration(minutes: 5); // Cache for 5 minutes
 
   // Debug logging configuration
   static const String _logTag = '🔄 SYP_PROVIDER';
@@ -33,10 +38,23 @@ class SypProvider extends GetxController {
   int get selectedForecastDays => 1;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  
+  // Cache checking methods
+  bool get isRatesCacheValid => _lastRatesFetch != null && 
+      DateTime.now().difference(_lastRatesFetch!) < _cacheDuration;
+  bool get isForecastCacheValid => _lastForecastFetch != null && 
+      DateTime.now().difference(_lastForecastFetch!) < _cacheDuration;
 
   // Load current rates
-  Future<void> loadCurrentRates() async {
+  Future<void> loadCurrentRates({bool forceRefresh = false}) async {
     const method = 'loadCurrentRates';
+    
+    // Check cache first
+    if (!forceRefresh && isRatesCacheValid && _currentRates != null) {
+      _log('Using cached current rates', method: method, level: 'info');
+      return;
+    }
+    
     _log('🚀 Loading current rates for city: damascus', method: method, level: 'info');
     
     try {
@@ -46,6 +64,7 @@ class SypProvider extends GetxController {
       _log('⏳ Making API call to get current rates...', method: method, level: 'debug');
       final apiData = await SypApiService.getCurrentRates(city: 'damascus');
       _currentRates = SypApiService.parseCurrentRates(apiData);
+      _lastRatesFetch = DateTime.now(); // Update cache timestamp
       
       _log('✅ Current rates loaded successfully', method: method, level: 'info');
       
@@ -70,8 +89,15 @@ class SypProvider extends GetxController {
   }
 
   // Load forecast
-  Future<void> loadForecast() async {
+  Future<void> loadForecast({bool forceRefresh = false}) async {
     const method = 'loadForecast';
+    
+    // Check cache first
+    if (!forceRefresh && isForecastCacheValid && _forecast != null) {
+      _log('Using cached forecast data', method: method, level: 'info');
+      return;
+    }
+    
     _log('🚀 Loading forecast for city: damascus', method: method, level: 'info');
     
     try {
@@ -81,6 +107,7 @@ class SypProvider extends GetxController {
       _log('⏳ Making API call to get forecast...', method: method, level: 'debug');
       final apiData = await SypApiService.getForecast(days: 1, city: 'damascus');
       _forecast = SypApiService.parseForecast(apiData);
+      _lastForecastFetch = DateTime.now(); // Update cache timestamp
       
       _log('✅ Forecast loaded successfully', method: method, level: 'info');
       

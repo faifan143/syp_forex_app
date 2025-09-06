@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/forex_provider.dart';
 import '../models/forex_models.dart';
+import '../controllers/theme_controller.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,10 +15,10 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // Load forex data when page loads
+    // Load forex dashboard data when page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final forexProvider = Get.find<ForexProvider>();
-      forexProvider.loadForexRates();
+      forexProvider.loadForexDashboard(forceRefresh: true);
     });
   }
 
@@ -32,7 +33,7 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               final forexProvider = Get.find<ForexProvider>();
-              forexProvider.loadForexRates();
+              forexProvider.loadForexDashboard(forceRefresh: true);
             },
             tooltip: 'refresh'.tr,
           ),
@@ -40,7 +41,7 @@ class _HomePageState extends State<HomePage> {
       ),
       body: GetBuilder<ForexProvider>(
         builder: (forexProvider) {
-          if (forexProvider.isLoadingRates) {
+          if (forexProvider.isLoadingDashboard || forexProvider.isLoadingRates) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -53,7 +54,7 @@ class _HomePageState extends State<HomePage> {
             );
           }
 
-          if (forexProvider.ratesError != null) {
+          if (forexProvider.dashboardError != null || forexProvider.ratesError != null) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -70,14 +71,53 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    forexProvider.ratesError!,
+                    forexProvider.dashboardError ?? forexProvider.ratesError!,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      forexProvider.loadForexRates();
+                      forexProvider.loadForexDashboard(forceRefresh: true);
+                    },
+                    child: Text('retry'.tr),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Show dashboard data if available, otherwise fallback to rates
+          if (forexProvider.dashboardData != null) {
+            return _buildDashboardView(forexProvider.dashboardData!);
+          }
+          
+          // If dashboard failed, show error message
+          if (forexProvider.dashboardError != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.warning_outlined,
+                    size: 64,
+                    color: Colors.orange,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'dashboardUnavailable'.tr,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The forex dashboard API is not available. Please check if the backend server is running on localhost:5001',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      forexProvider.loadForexDashboard(forceRefresh: true);
                     },
                     child: Text('retry'.tr),
                   ),
@@ -107,7 +147,7 @@ class _HomePageState extends State<HomePage> {
 
           return RefreshIndicator(
             onRefresh: () async {
-              await forexProvider.loadForexRates();
+              await forexProvider.loadForexDashboard();
             },
             child: ListView(
               padding: const EdgeInsets.all(16),
@@ -261,7 +301,7 @@ class _HomePageState extends State<HomePage> {
     final difference = now.difference(dateTime);
     
     if (difference.inMinutes < 1) {
-      return 'Just now';
+      return 'justNow'.tr;
     } else if (difference.inMinutes < 60) {
       return '${difference.inMinutes}m ago';
     } else if (difference.inHours < 24) {
@@ -269,5 +309,300 @@ class _HomePageState extends State<HomePage> {
     } else {
       return '${difference.inDays}d ago';
     }
+  }
+
+  // Get day name for predictions
+  String _getDayName(int dayIndex) {
+    final now = DateTime.now();
+    final targetDate = now.add(Duration(days: dayIndex + 1));
+    final weekdays = ['monday'.tr, 'tuesday'.tr, 'wednesday'.tr, 'thursday'.tr, 'friday'.tr, 'saturday'.tr, 'sunday'.tr];
+    return weekdays[targetDate.weekday - 1];
+  }
+
+  // Format timestamp for display
+  String _formatTimestamp(String timestamp) {
+    try {
+      final dateTime = DateTime.parse(timestamp);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+      
+      if (difference.inMinutes < 1) {
+        return 'justNow'.tr;
+      } else if (difference.inMinutes < 60) {
+        return '${difference.inMinutes}m ago';
+      } else if (difference.inHours < 24) {
+        return '${difference.inHours}h ago';
+      } else {
+        return '${difference.inDays}d ago';
+      }
+    } catch (e) {
+      return 'unknown'.tr;
+    }
+  }
+
+  // Build enhanced dashboard view with predictions
+  Widget _buildDashboardView(ForexDashboardResponse dashboard) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        final forexProvider = Get.find<ForexProvider>();
+        await forexProvider.loadForexDashboard();
+      },
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // // Dashboard Header
+          // Card(
+          //   child: Padding(
+          //     padding: const EdgeInsets.all(16),
+          //     child: Column(
+          //       crossAxisAlignment: CrossAxisAlignment.start,
+          //       children: [
+          //         Row(
+          //           children: [
+          //             Icon(
+          //               Icons.dashboard,
+          //               color: Theme.of(context).colorScheme.primary,
+          //             ),
+          //             const SizedBox(width: 8),
+          //             Text(
+          //               'forexDashboard'.tr,
+          //               style: Theme.of(context).textTheme.headlineSmall,
+          //             ),
+          //           ],
+          //         ),
+          //         const SizedBox(height: 8),
+          //         Text(
+          //           'lastUpdated'.tr + ': ${_formatTimestamp(dashboard.timestamp)}',
+          //           style: Theme.of(context).textTheme.bodySmall,
+          //         ),
+          //         const SizedBox(height: 4),
+          //         Text(
+          //           '${dashboard.totalCurrencies} ${'currencies'.tr} • ${'predictions'.tr}: ${dashboard.features.sevenDayPredictions ? 'enabled'.tr : 'disabled'.tr}',
+          //           style: Theme.of(context).textTheme.bodySmall,
+          //         ),
+          //       ],
+          //     ),
+          //   ),
+          // ),
+          
+          // const SizedBox(height: 16),
+          
+          // Currency Cards with Predictions
+          ...dashboard.currencies.map((currency) => _buildCurrencyCard(currency)).toList(),
+        ],
+      ),
+    );
+  }
+
+  // Build individual currency card with predictions
+  Widget _buildCurrencyCard(ForexCurrency currency) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  currency.pair,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: currency.isUp 
+                        ? Colors.green.withOpacity(0.1)
+                        : currency.isDown 
+                            ? Colors.red.withOpacity(0.1)
+                            : Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    currency.trend.toUpperCase(),
+                    style: TextStyle(
+                      color: currency.isUp 
+                          ? Colors.green[700]
+                          : currency.isDown 
+                              ? Colors.red[700]
+                              : Colors.grey[700],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Current Price
+            Row(
+              children: [
+                Text(
+                  currency.formattedCurrentValue,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  currency.formattedDailyChange,
+                  style: TextStyle(
+                    color: currency.dailyChange >= 0 ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  currency.formattedDailyChangePercent,
+                  style: TextStyle(
+                    color: currency.dailyChange >= 0 ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Predictions Section
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.trending_up,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'predictions'.tr,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Tomorrow Prediction
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('tomorrow'.tr),
+                      Row(
+                        children: [
+                          Text(
+                            currency.formattedTomorrowPrediction,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            currency.formattedPredictionChange,
+                            style: TextStyle(
+                              color: currency.predictionChange >= 0 ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            currency.formattedPredictionChangePercent,
+                            style: TextStyle(
+                              color: currency.predictionChange >= 0 ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // 7-Day Predictions
+                  if (currency.forecast7Days.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '7DayPredictions'.tr,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...currency.forecast7Days.asMap().entries.map((entry) {
+                      final dayIndex = entry.key;
+                      final prediction = entry.value;
+                      final dayName = _getDayName(dayIndex);
+                      final change = prediction - currency.currentValue;
+                      final changePercent = (change / currency.currentValue) * 100;
+                      
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              dayName,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  prediction.toStringAsFixed(4),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  change >= 0 ? '+${change.toStringAsFixed(4)}' : change.toStringAsFixed(4),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: change >= 0 ? Colors.green : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  change >= 0 ? '+${changePercent.toStringAsFixed(1)}%' : '${changePercent.toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: change >= 0 ? Colors.green : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
