@@ -363,7 +363,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Confidence:'),
+                            Text('confidence'.tr + ':'),
                             Text(
                               '${forecast.prediction.confidenceInterval.rangePct.toStringAsFixed(1)}% range',
                               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -434,7 +434,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Market Trend:'),
+            Text('marketTrend'.tr + ':'),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -456,7 +456,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Volatility:'),
+            Text('volatility'.tr + ':'),
             Text(
               currentRates.ohlcv.dayType == 'calm' ? 'Low' : 'Normal',
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -479,7 +479,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Tomorrow Outlook:'),
+              Text('tomorrowOutlook'.tr + ':'),
               Text(
                 forecast.prediction.expectedChange >= 0 ? 'Positive' : 'Negative',
                 style: TextStyle(

@@ -111,7 +111,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🎮 Paper Trading'),
+        title: Text('🎮 ${'paperTrading'.tr}'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         actions: [
           IconButton(
@@ -120,7 +120,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               final forexProvider = Get.find<ForexProvider>();
               forexProvider.loadForexRates();
             },
-            tooltip: 'Refresh Data',
+            tooltip: 'refresh'.tr,
           ),
         ],
       ),
@@ -314,7 +314,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Level', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              Text('level'.tr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
               Text('$display%', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
             ],
           ),
@@ -368,14 +368,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                                 value: paper.realisticMode,
                                 onChanged: (_) => paper.toggleRealisticMode(),
                               ),
-                              const Text('Realistic fills'),
+                              Text('realisticMode'.tr),
                             ],
                           ),
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('Symbol: '),
+                            Text('symbol'.tr + ': '),
                             ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxWidth: isTight ? 140 : 220,
@@ -792,7 +792,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 const Padding(
                   padding: EdgeInsets.all(24),
                   child: Center(
-                    child: Text('No trades yet', style: TextStyle(color: Colors.grey)),
+                    child: Text('noTradeHistory'.tr, style: const TextStyle(color: Colors.grey)),
                   ),
                 )
               else

@@ -84,8 +84,8 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.data_usage,
             children: [
               SwitchListTile(
-                title: const Text('Use Demo Data'),
-                subtitle: const Text('Use simulated data instead of real API calls'),
+                title: Text('useDemoData'.tr),
+                subtitle: Text('useSimulatedData'.tr),
                 value: _useDemoData,
                 onChanged: (value) {
                   setState(() {
@@ -106,8 +106,8 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.refresh,
             children: [
               SwitchListTile(
-                title: const Text('Auto Refresh Data'),
-                subtitle: const Text('Automatically refresh forex and SYP data'),
+                title: Text('autoRefreshData'.tr),
+                subtitle: Text('automaticallyRefreshData'.tr),
                 value: _autoRefresh,
                 onChanged: (value) {
                   setState(() {
@@ -117,15 +117,15 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               if (_autoRefresh) ...[
                 ListTile(
-                  title: const Text('Refresh Interval'),
-                  subtitle: Text('Every $_refreshInterval seconds'),
+                  title: Text('refreshInterval'.tr),
+                  subtitle: Text('${'every'.tr} $_refreshInterval ${'seconds'.tr}'),
                   trailing: DropdownButton<int>(
                     value: _refreshInterval,
-                    items: const [
-                      DropdownMenuItem(value: 15, child: Text('15 seconds')),
-                      DropdownMenuItem(value: 30, child: Text('30 seconds')),
-                      DropdownMenuItem(value: 60, child: Text('1 minute')),
-                      DropdownMenuItem(value: 300, child: Text('5 minutes')),
+                    items: [
+                      DropdownMenuItem(value: 15, child: Text('15 ${'seconds'.tr}')),
+                      DropdownMenuItem(value: 30, child: Text('30 ${'seconds'.tr}')),
+                      DropdownMenuItem(value: 60, child: Text('1 ${'minute'.tr}')),
+                      DropdownMenuItem(value: 300, child: Text('5 ${'minutes'.tr}')),
                     ],
                     onChanged: (value) {
                       if (value != null) {
