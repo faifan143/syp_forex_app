@@ -68,6 +68,22 @@ class MarketSimulationService {
     _isRunning = false;
   }
 
+  // Update base prices with real market data
+  void updateBasePrices(Map<String, double> newBasePrices) {
+    // Update base prices with real market data
+    for (String symbol in newBasePrices.keys) {
+      _basePrices[symbol] = newBasePrices[symbol]!;
+    }
+    
+    // If simulation is running, update current prices immediately
+    if (_isRunning) {
+      for (String symbol in newBasePrices.keys) {
+        _currentPrices[symbol] = newBasePrices[symbol]!;
+      }
+      _priceController.add(Map.from(_currentPrices));
+    }
+  }
+
   void _initializePrices() {
     for (String symbol in _basePrices.keys) {
       _currentPrices[symbol] = _basePrices[symbol]!;

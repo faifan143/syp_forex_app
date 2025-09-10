@@ -373,7 +373,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    cityName,
+                    cityName.tr,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -499,7 +499,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                         Icon(IconlyBroken.arrow_up_2, size: 10, color: Colors.red[600]),
                         const SizedBox(width: 2),
                         Text(
-                          'Ask',
+                          'ask'.tr,
                           style: TextStyle(
                             fontSize: 10,
                             color: Colors.grey[600],
@@ -525,7 +525,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                         Icon(IconlyBroken.arrow_down_2, size: 10, color: Colors.green[600]),
                         const SizedBox(width: 2),
                         Text(
-                          'Bid',
+                          'bid'.tr,
                           style: TextStyle(
                             fontSize: 10,
                             color: Colors.grey[600],
@@ -556,7 +556,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                     Icon(IconlyBroken.arrow_up_2, size: 10, color: Colors.grey[600]),
                     const SizedBox(width: 2),
                     Text(
-                      'Change:',
+                      '${'change'.tr}:',
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.grey[600],
@@ -583,7 +583,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                     Icon(IconlyBroken.discount, size: 10, color: Colors.grey[600]),
                     const SizedBox(width: 2),
                     Text(
-                      'Change %:',
+                      '${'changePercent'.tr}:',
                       style: TextStyle(
                         fontSize: 10,
                         color: Colors.grey[600],
@@ -686,12 +686,12 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     if (_comprehensiveData == null) {
       return Container(
         padding: const EdgeInsets.all(16),
-        child: const Center(
-          child: Text(
-            'No prediction data',
-            style: TextStyle(color: Colors.grey),
+          child: Center(
+            child: Text(
+              'noPredictionData'.tr,
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
-        ),
       );
     }
 
@@ -701,10 +701,10 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     if (currentRate == null) {
       return Container(
         padding: const EdgeInsets.all(16),
-        child: const Center(
+        child: Center(
           child: Text(
-            'No current rate data',
-            style: TextStyle(color: Colors.grey),
+            'noCurrentRateData'.tr,
+            style: const TextStyle(color: Colors.grey),
           ),
         ),
       );
@@ -751,7 +751,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Tomorrow\'s Prediction',
+                    'tomorrowsPrediction'.tr,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -776,7 +776,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      isPositiveChange ? 'UP' : 'DOWN',
+                      isPositiveChange ? 'up'.tr : 'down'.tr,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -800,7 +800,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             ),
           ),
           Text(
-            'SYP',
+            'syp'.tr,
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[600],
@@ -813,13 +813,13 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
           Row(
             children: [
               Expanded(
-                child: _buildCompactDetail('Ask', prediction.formattedAsk, Colors.red[600]!),
+                child: _buildCompactDetail('ask'.tr, prediction.formattedAsk, Colors.red[600]!),
               ),
               Expanded(
-                child: _buildCompactDetail('Bid', prediction.formattedBid, Colors.green[600]!),
+                child: _buildCompactDetail('bid'.tr, prediction.formattedBid, Colors.green[600]!),
               ),
               Expanded(
-                child: _buildCompactDetail('Spread', prediction.spread.toString(), Colors.grey[600]!),
+                child: _buildCompactDetail('spread'.tr, prediction.spread.toString(), Colors.grey[600]!),
               ),
             ],
           ),
@@ -830,7 +830,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Change: ${change > 0 ? '+' : ''}${change.toStringAsFixed(1)} SYP',
+                '${'change'.tr}: ${change > 0 ? '+' : ''}${change.toStringAsFixed(1)} ${'syp'.tr}',
                 style: TextStyle(
                   color: changeColor,
                   fontWeight: FontWeight.w600,

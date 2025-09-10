@@ -24,12 +24,31 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('forexToday'.tr),
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: Text(
+          'forexToday'.tr,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.blue[800],
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1565C0), // Colors.blue[800]
+                Color(0xFF1976D2), // Colors.blue[600]
+              ],
+            ),
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
               final forexProvider = Get.find<ForexProvider>();
               forexProvider.loadForexDashboard(forceRefresh: true);

@@ -94,15 +94,103 @@ class PaperTradingProvider extends GetxController {
     update();
   }
   
-  // Update position prices with current market prices
+  // Update position prices with current market prices and check for stop loss/take profit
   void _updatePositionPrices() {
-    final updatedPositions = _wallet.openPositions.map((position) {
+    final updatedPositions = <Position>[];
+    final positionsToClose = <Position>[];
+    
+    for (final position in _wallet.openPositions) {
       final currentPrice = _currentPrices[position.symbol] ?? position.currentPrice;
-      return position.copyWith(currentPrice: currentPrice);
-    }).toList();
+      final updatedPosition = position.copyWith(currentPrice: currentPrice);
+      
+      // Check for stop loss or take profit
+      if (_shouldClosePosition(updatedPosition)) {
+        positionsToClose.add(updatedPosition);
+      } else {
+        updatedPositions.add(updatedPosition);
+      }
+    }
+    
+    // Close positions that hit stop loss or take profit
+    for (final position in positionsToClose) {
+      _closePositionAutomatically(position);
+    }
     
     _wallet = _wallet.copyWith(
       openPositions: updatedPositions,
+      lastUpdate: DateTime.now(),
+    );
+  }
+
+  // Check if position should be closed due to stop loss or take profit
+  bool _shouldClosePosition(Position position) {
+    final currentPrice = position.currentPrice;
+    
+    // If no stop loss or take profit is set, don't close
+    if (position.stopLoss <= 0 && position.takeProfit <= 0) {
+      return false;
+    }
+    
+    if (position.type == PositionType.buy) {
+      // For buy positions
+      if (position.stopLoss > 0 && currentPrice <= position.stopLoss) {
+        return true; // Stop loss hit
+      }
+      if (position.takeProfit > 0 && currentPrice >= position.takeProfit) {
+        return true; // Take profit hit
+      }
+    } else {
+      // For sell positions
+      if (position.stopLoss > 0 && currentPrice >= position.stopLoss) {
+        return true; // Stop loss hit
+      }
+      if (position.takeProfit > 0 && currentPrice <= position.takeProfit) {
+        return true; // Take profit hit
+      }
+    }
+    
+    return false;
+  }
+
+  // Calculate P&L for a position
+  double _calculatePnL(Position position, double currentPrice) {
+    final priceDifference = currentPrice - position.openPrice;
+    final multiplier = position.type == PositionType.buy ? 1.0 : -1.0;
+    return priceDifference * multiplier * position.volume * 100000; // Standard lot size
+  }
+
+  // Calculate commission for a position
+  double _calculateCommission(Position position) {
+    // Simple commission calculation: $7 per lot
+    return position.volume * 7.0;
+  }
+
+  // Automatically close position when stop loss or take profit is hit
+  void _closePositionAutomatically(Position position) {
+    final currentPrice = position.currentPrice;
+    final pnl = _calculatePnL(position, currentPrice);
+    final commission = _calculateCommission(position);
+    final realizedPnL = pnl - commission;
+    
+    // Create trade record
+    final trade = ClosedTrade(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      symbol: position.symbol,
+      type: position.type,
+      volume: position.volume,
+      openPrice: position.openPrice,
+      closePrice: currentPrice,
+      openTime: position.openTime,
+      closeTime: DateTime.now(),
+      realizedPnL: realizedPnL,
+      commission: commission,
+      comment: '',
+    );
+    
+    // Update wallet
+    _wallet = _wallet.copyWith(
+      balance: _wallet.balance + realizedPnL,
+      tradeHistory: [..._wallet.tradeHistory, trade],
       lastUpdate: DateTime.now(),
     );
   }
@@ -223,6 +311,19 @@ class PaperTradingProvider extends GetxController {
     update();
   }
 
+  // Update simulation base prices with real market data
+  void updateSimulationBasePrices(Map<String, double> basePrices) {
+    // Update the market simulation service with real market data as base prices
+    _marketService.updateBasePrices(basePrices);
+    
+    // If simulation is running, update current prices immediately
+    if (_isSimulationRunning) {
+      _currentPrices = Map.from(basePrices);
+      _updatePositionPrices();
+      update();
+    }
+  }
+
   // Open a new position
   Future<void> openPosition({
     required String symbol,
@@ -231,7 +332,6 @@ class PaperTradingProvider extends GetxController {
     required double price,
     double? stopLoss,
     double? takeProfit,
-    String? comment,
   }) async {
     _setLoading(true);
     
@@ -251,7 +351,7 @@ class PaperTradingProvider extends GetxController {
         openTime: DateTime.now(),
         stopLoss: stopLoss ?? 0.0,
         takeProfit: takeProfit ?? 0.0,
-        comment: comment ?? '',
+        comment: '',
       );
 
       // Calculate required margin (simplified calculation)

@@ -4,6 +4,7 @@ import '../providers/paper_trading_provider.dart';
 import '../providers/forex_provider.dart';
 import '../controllers/translation_controller.dart';
 import '../models/paper_trading_models.dart';
+import '../models/forex_models.dart';
 import '../services/realistic_data_generator.dart';
 
 class ComprehensivePaperTradingPage extends StatefulWidget {
@@ -19,8 +20,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   final _volumeController = TextEditingController(text: '0.1');
   final _stopLossController = TextEditingController();
   final _takeProfitController = TextEditingController();
-  final _commentController = TextEditingController();
-  final _riskPercentController = TextEditingController(text: '1.0');
   
   String _selectedSymbol = 'EUR/USD';
   String _selectedTimeframe = 'M15';
@@ -46,36 +45,109 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     return hslDark.toColor();
   }
 
-  void _calculatePositionSizeFromRisk() {
-    final paperProvider = Get.find<PaperTradingProvider>();
-    final balance = paperProvider.currentBalance;
-    final riskPercent = double.tryParse(_riskPercentController.text) ?? 1.0;
-    final stopLossPrice = double.tryParse(_stopLossController.text);
-    final currentPrice = paperProvider.currentPrices[_selectedSymbol] ?? _currentPrice;
-    if (stopLossPrice == null || stopLossPrice == 0.0 || currentPrice == 0.0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('enterStopLossAndPrice'.tr)),
-      );
-      return;
+
+  // Get pip size for different currency pairs
+  double _getPipSize(String symbol) {
+    // JPY pairs have 0.01 pip size, others have 0.0001
+    if (symbol.contains('/JPY') || symbol.startsWith('JPY/')) {
+      return 0.01;
     }
-    final riskAmount = balance * (riskPercent / 100.0);
-    final bool isJpyPair = _selectedSymbol.contains('/JPY') || _selectedSymbol.startsWith('JPY/');
-    final double pipSize = isJpyPair ? 0.01 : 0.0001;
-    // Approx pip value per lot in USD terms (simple approx):
-    final double pipValuePerLot = isJpyPair ? (1000 / currentPrice) : 10.0;
-    final pipsToSL = ((_selectedType == PositionType.buy)
-            ? (currentPrice - stopLossPrice)
-            : (stopLossPrice - currentPrice))
-        .abs() /
-        pipSize;
-    if (pipsToSL <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('stopLossMustBeAwayFromPrice'.tr)),
-      );
-      return;
+    return 0.0001;
+  }
+
+  // Calculate pip value in USD for a given currency pair, price, and volume
+  double _calculatePipValue(String symbol, double currentPrice, double volume) {
+    final pipSize = _getPipSize(symbol);
+    
+    // For major pairs, pip value is typically $10 per lot per pip
+    // For JPY pairs, it's approximately $10 per lot per pip (simplified calculation)
+    if (symbol.contains('/JPY') || symbol.startsWith('JPY/')) {
+      // For JPY pairs: pip value = (pip size / current price) * volume * 100000
+      return (pipSize / currentPrice) * volume * 100000;
+    } else {
+      // For major pairs: pip value = pip size * volume * 100000
+      return pipSize * volume * 100000;
     }
-    final lots = (riskAmount / (pipsToSL * pipValuePerLot)).clamp(0.01, 100.0);
-    _volumeController.text = lots.toStringAsFixed(2);
+  }
+
+  // Helper method to update paper trading with forex data from dashboard or rates
+  void _updatePaperTradingWithForexData(ForexProvider forexProvider, PaperTradingProvider paperProvider) {
+    // Try to get data from dashboard first, then fallback to rates
+    if (forexProvider.dashboardData != null) {
+      // Convert dashboard data to ForexRate format for paper trading
+      final rates = <ForexRate>[];
+      for (final currency in forexProvider.dashboardData!.currencies) {
+        final rate = ForexRate(
+          fromCurrency: currency.pair.split('/')[0],
+          toCurrency: currency.pair.split('/')[1],
+          symbol: currency.pair,
+          rate: currency.currentValue,
+          timestamp: DateTime.now(),
+          change: currency.tomorrowChange,
+          changePercent: currency.tomorrowChangePercent,
+        );
+        rates.add(rate);
+      }
+      paperProvider.updateForexRates(rates);
+      
+      // Feed dashboard data into the simulation as base prices
+      _updateSimulationWithDashboardData(forexProvider.dashboardData!.currencies, paperProvider);
+    } else if (forexProvider.forexRates.isNotEmpty) {
+      // Fallback to regular forex rates
+      paperProvider.updateForexRates(forexProvider.forexRates.values.toList());
+      
+      // Feed forex rates into simulation as base prices
+      _updateSimulationWithForexRates(forexProvider.forexRates.values.toList(), paperProvider);
+    }
+  }
+
+  // Update simulation with dashboard data as base prices
+  void _updateSimulationWithDashboardData(List<dynamic> currencies, PaperTradingProvider paperProvider) {
+    // Create a map of current prices from dashboard data
+    final Map<String, double> dashboardPrices = {};
+    for (final currency in currencies) {
+      dashboardPrices[currency.pair] = currency.currentValue;
+    }
+    
+    // Update the simulation service with dashboard prices
+    paperProvider.updateSimulationBasePrices(dashboardPrices);
+  }
+
+  // Update simulation with forex rates as base prices
+  void _updateSimulationWithForexRates(List<ForexRate> rates, PaperTradingProvider paperProvider) {
+    // Create a map of current prices from forex rates
+    final Map<String, double> ratePrices = {};
+    for (final rate in rates) {
+      ratePrices[rate.symbol] = rate.rate;
+    }
+    
+    // Update the simulation service with rate prices
+    paperProvider.updateSimulationBasePrices(ratePrices);
+  }
+
+  // Get spread percentage based on currency pair
+  // Formula: Bid ≈ Ask - (spread_percentage × Ask)
+  double _getSpreadPercentage(String symbol) {
+    if (symbol.contains('JPY')) {
+      // JPY pairs typically have larger spreads (0.6-1.2%)
+      return 0.008; // 0.8%
+    } else if (symbol == 'EUR/USD' || symbol == 'GBP/USD' || symbol == 'AUD/USD') {
+      // Major pairs have tighter spreads (0.02-0.05%)
+      return 0.0004; // 0.04%
+    } else if (symbol.contains('USD')) {
+      // Other USD pairs have medium spreads (0.1-0.3%)
+      return 0.002; // 0.2%
+    } else {
+      // Exotic pairs have wider spreads (0.3-0.8%)
+      return 0.005; // 0.5%
+    }
+  }
+
+  // Calculate realistic spread based on currency pair using percentage-based formula
+  // Formula: Bid ≈ Ask - (spread_percentage × Ask) => Spread = spread_percentage × Ask
+  double _calculateRealisticSpread(String symbol, double currentRate) {
+    final spreadPercentage = _getSpreadPercentage(symbol);
+    return currentRate * spreadPercentage;
   }
 
   @override
@@ -86,14 +158,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       final forexProvider = Get.find<ForexProvider>();
       final paperProvider = Get.find<PaperTradingProvider>();
       
-      // Load forex rates and start simulation
-      forexProvider.loadForexRates();
+      // Load forex dashboard data (same as home page) with fallback to rates
+      forexProvider.loadForexDashboard(forceRefresh: true);
       paperProvider.initialize();
       paperProvider.startSimulation(); // Start paper trading simulation
       
-      // Update paper trading with forex rates after a short delay
+      // Update paper trading with forex data after a short delay
       Future.delayed(const Duration(milliseconds: 500), () {
-        paperProvider.updateForexRates(forexProvider.forexRates.values.toList());
+        _updatePaperTradingWithForexData(forexProvider, paperProvider);
       });
     });
   }
@@ -103,7 +175,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     _volumeController.dispose();
     _stopLossController.dispose();
     _takeProfitController.dispose();
-    _commentController.dispose();
     super.dispose();
   }
 
@@ -118,7 +189,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
             icon: const Icon(Icons.refresh),
             onPressed: () {
               final forexProvider = Get.find<ForexProvider>();
-              forexProvider.loadForexRates();
+              final paperProvider = Get.find<PaperTradingProvider>();
+              // Use same data source as home page
+              forexProvider.loadForexDashboard(forceRefresh: true);
+              // Update paper trading with new data
+              Future.delayed(const Duration(milliseconds: 500), () {
+                _updatePaperTradingWithForexData(forexProvider, paperProvider);
+              });
             },
             tooltip: 'refresh'.tr,
           ),
@@ -326,7 +403,28 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   Widget _buildChartSection() {
     return GetBuilder<ForexProvider>(
       builder: (forexProvider) {
-        final currentRate = forexProvider.forexRates[_selectedSymbol];
+        // Get current rate from dashboard data or forex rates (same as home page)
+        ForexRate? currentRate;
+        if (forexProvider.dashboardData != null) {
+          // Find currency in dashboard data
+          final currency = forexProvider.dashboardData!.currencies
+              .where((c) => c.pair == _selectedSymbol)
+              .firstOrNull;
+          if (currency != null) {
+            currentRate = ForexRate(
+              fromCurrency: currency.pair.split('/')[0],
+              toCurrency: currency.pair.split('/')[1],
+              symbol: currency.pair,
+              rate: currency.currentValue,
+              timestamp: DateTime.now(),
+              change: currency.tomorrowChange,
+              changePercent: currency.tomorrowChangePercent,
+            );
+          }
+        } else {
+          // Fallback to regular forex rates
+          currentRate = forexProvider.forexRates[_selectedSymbol];
+        }
         
         return Container(
           margin: const EdgeInsets.all(16),
@@ -389,15 +487,20 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                             ),
                           ],
                         ),
+                        // Use simulation data when available, fallback to dashboard data
                         GetBuilder<PaperTradingProvider>(
                           builder: (paper) {
                             double bid, ask;
-                            if (paper.isSimulationRunning) {
-                              bid = paper.getCurrentBid(_selectedSymbol);
-                              ask = paper.getCurrentAsk(_selectedSymbol);
+                            if (paper.isSimulationRunning && paper.currentPrices.containsKey(_selectedSymbol)) {
+                              // Use simulation data (which is now based on dashboard data)
+                              final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
+                              ask = paper.currentPrices[_selectedSymbol]!;
+                              bid = ask - (spreadPercentage * ask);
                             } else if (currentRate != null) {
-                              bid = currentRate.rate;
-                              ask = currentRate.rate + 0.0001;
+                              // Fallback to dashboard data
+                              final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
+                              ask = currentRate.rate;
+                              bid = ask - (spreadPercentage * ask);
                             } else {
                               bid = 0; ask = 0;
                             }
@@ -496,24 +599,50 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     return GetBuilder<PaperTradingProvider>(
       builder: (paperProvider) {
         final forexProvider = Get.find<ForexProvider>();
-        // Get current price from simulation or forex rates
+        // Get current price from simulation or forex data (same as home page)
         double currentPrice = 0.0;
         double bidPrice = 0.0;
         double askPrice = 0.0;
         double spread = 0.0;
         
         if (paperProvider.isSimulationRunning && paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+          // Use simulation data (which is now based on dashboard data)
+          final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
           currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
-          bidPrice = currentPrice - 0.0001; // Simplified spread
-          askPrice = currentPrice + 0.0001;
-          spread = 0.0002;
+          askPrice = currentPrice;
+          bidPrice = askPrice - (spreadPercentage * askPrice);
+          spread = askPrice - bidPrice;
         } else {
-          final currentRate = forexProvider.forexRates[_selectedSymbol];
+          // Try to get data from dashboard first, then fallback to rates
+          ForexRate? currentRate;
+          if (forexProvider.dashboardData != null) {
+            // Find currency in dashboard data
+            final currency = forexProvider.dashboardData!.currencies
+                .where((c) => c.pair == _selectedSymbol)
+                .firstOrNull;
+            if (currency != null) {
+              currentRate = ForexRate(
+                fromCurrency: currency.pair.split('/')[0],
+                toCurrency: currency.pair.split('/')[1],
+                symbol: currency.pair,
+                rate: currency.currentValue,
+                timestamp: DateTime.now(),
+                change: currency.tomorrowChange,
+                changePercent: currency.tomorrowChangePercent,
+              );
+            }
+          } else {
+            // Fallback to regular forex rates
+            currentRate = forexProvider.forexRates[_selectedSymbol];
+          }
+          
           if (currentRate != null) {
+            // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
+            final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
             currentPrice = currentRate.rate;
-            bidPrice = currentRate.rate;
-            askPrice = currentRate.rate + 0.0001;
-            spread = 0.0001;
+            askPrice = currentRate.rate; // Use current rate as ask price
+            bidPrice = askPrice - (spreadPercentage * askPrice); // Calculate bid using the formula
+            spread = askPrice - bidPrice; // Calculate actual spread
           }
         }
         
@@ -1382,7 +1511,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-                      Text(
+        Text(
           'volumeLots'.tr,
           style: TextStyle(
             fontSize: 16,
@@ -1390,7 +1519,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
-                      const SizedBox(height: 8),
+        const SizedBox(height: 8),
         TextFormField(
           controller: _volumeController,
           keyboardType: TextInputType.number,
@@ -1404,32 +1533,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
             fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
             suffixIcon: Icon(Icons.analytics, color: Theme.of(context).colorScheme.primary),
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _riskPercentController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  hintText: 'Risk % (e.g., 1.0)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  filled: true,
-                  fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                  suffixIcon: const Icon(Icons.percent),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: _calculatePositionSizeFromRisk,
-              child: Text('calcLots'.tr),
-            ),
-          ],
         ),
       ],
     );
@@ -1465,8 +1568,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                     controller: _stopLossController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'stopLoss'.tr,
-                      hintText: 'optional'.tr,
+                      labelText: 'Stop Loss (\$)',
+                      hintText: 'USD (e.g., 50)',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1480,8 +1583,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                     controller: _takeProfitController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'takeProfit'.tr,
-                      hintText: 'optional'.tr,
+                      labelText: 'Take Profit (\$)',
+                      hintText: 'USD (e.g., 100)',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1490,67 +1593,39 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                       fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _commentController,
-                    decoration: InputDecoration(
-                      labelText: 'comment'.tr,
-                      hintText: 'optionalTradeComment'.tr,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                  ),
                 ],
               );
             } else {
               // Use horizontal layout on larger screens
-              return Column(
+              return Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _stopLossController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'stopLoss'.tr,
-                            hintText: 'optional'.tr,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _stopLossController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Stop Loss (\$)',
+                        hintText: 'USD (e.g., 50)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _takeProfitController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'takeProfit'.tr,
-                            hintText: 'optional'.tr,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _commentController,
-                    decoration: InputDecoration(
-                      labelText: 'comment'.tr,
-                      hintText: 'optionalTradeComment'.tr,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _takeProfitController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Take Profit (\$)',
+                        hintText: 'USD (e.g., 100)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                   ),
                 ],
@@ -1672,13 +1747,42 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
 
   void _openPosition(PaperTradingProvider paperProvider, double currentPrice) {
     final volume = double.tryParse(_volumeController.text) ?? 0.1;
-    final stopLoss = _stopLossController.text.isNotEmpty 
-        ? double.tryParse(_stopLossController.text) ?? 0.0
-        : 0.0;
-    final takeProfit = _takeProfitController.text.isNotEmpty 
-        ? double.tryParse(_takeProfitController.text) ?? 0.0
-        : 0.0;
-    final comment = _commentController.text.isNotEmpty ? _commentController.text : null;
+    
+    // Convert dollar amounts to actual price levels
+    double? stopLoss;
+    double? takeProfit;
+    
+    if (_stopLossController.text.isNotEmpty) {
+      final stopLossDollars = double.tryParse(_stopLossController.text);
+      if (stopLossDollars != null && stopLossDollars > 0) {
+        // Calculate how many pips = the desired dollar loss
+        final pipValue = _calculatePipValue(_selectedSymbol, currentPrice, volume);
+        final stopLossPips = stopLossDollars / pipValue;
+        final pipSize = _getPipSize(_selectedSymbol);
+        
+        if (_selectedType == PositionType.buy) {
+          stopLoss = currentPrice - (stopLossPips * pipSize);
+        } else {
+          stopLoss = currentPrice + (stopLossPips * pipSize);
+        }
+      }
+    }
+    
+    if (_takeProfitController.text.isNotEmpty) {
+      final takeProfitDollars = double.tryParse(_takeProfitController.text);
+      if (takeProfitDollars != null && takeProfitDollars > 0) {
+        // Calculate how many pips = the desired dollar profit
+        final pipValue = _calculatePipValue(_selectedSymbol, currentPrice, volume);
+        final takeProfitPips = takeProfitDollars / pipValue;
+        final pipSize = _getPipSize(_selectedSymbol);
+        
+        if (_selectedType == PositionType.buy) {
+          takeProfit = currentPrice + (takeProfitPips * pipSize);
+        } else {
+          takeProfit = currentPrice - (takeProfitPips * pipSize);
+        }
+      }
+    }
 
     // Add position to paper trading
     paperProvider.openPosition(
@@ -1686,9 +1790,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       type: _selectedType,
       volume: volume,
       price: currentPrice,
-      stopLoss: stopLoss > 0 ? stopLoss : null,
-      takeProfit: takeProfit > 0 ? takeProfit : null,
-      comment: comment,
+      stopLoss: stopLoss,
+      takeProfit: takeProfit,
     );
 
     // Show success message
@@ -1702,7 +1805,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     // Clear form
     _stopLossController.clear();
     _takeProfitController.clear();
-    _commentController.clear();
   }
 
 
@@ -1812,14 +1914,36 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
 
 
   void _closePosition(Position position, PaperTradingProvider paperProvider) async {
-    // Get current price from simulation or forex rates
+    // Get current price from simulation or forex data (same as home page)
     double currentPrice = 0.0;
     
     if (paperProvider.isSimulationRunning && paperProvider.currentPrices.containsKey(position.symbol)) {
       currentPrice = paperProvider.currentPrices[position.symbol]!;
     } else {
       final forexProvider = Get.find<ForexProvider>();
-      final currentRate = forexProvider.forexRates[position.symbol];
+      // Try to get data from dashboard first, then fallback to rates
+      ForexRate? currentRate;
+      if (forexProvider.dashboardData != null) {
+        // Find currency in dashboard data
+        final currency = forexProvider.dashboardData!.currencies
+            .where((c) => c.pair == position.symbol)
+            .firstOrNull;
+        if (currency != null) {
+          currentRate = ForexRate(
+            fromCurrency: currency.pair.split('/')[0],
+            toCurrency: currency.pair.split('/')[1],
+            symbol: currency.pair,
+            rate: currency.currentValue,
+            timestamp: DateTime.now(),
+            change: currency.tomorrowChange,
+            changePercent: currency.tomorrowChangePercent,
+          );
+        }
+      } else {
+        // Fallback to regular forex rates
+        currentRate = forexProvider.forexRates[position.symbol];
+      }
+      
       if (currentRate != null) {
         currentPrice = currentRate.rate;
       }
