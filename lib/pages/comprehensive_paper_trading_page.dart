@@ -6,6 +6,7 @@ import '../controllers/translation_controller.dart';
 import '../models/paper_trading_models.dart';
 import '../models/forex_models.dart';
 import '../services/realistic_data_generator.dart';
+import 'fullscreen_chart_page.dart';
 
 class ComprehensivePaperTradingPage extends StatefulWidget {
   const ComprehensivePaperTradingPage({super.key});
@@ -22,7 +23,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   final _takeProfitController = TextEditingController();
   
   String _selectedSymbol = 'EUR/USD';
-  String _selectedTimeframe = 'M15';
+  String _selectedTimeframe = 'D1';
   PositionType _selectedType = PositionType.buy;
   double _currentPrice = 0.0;
   
@@ -202,6 +203,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         ],
       ),
       body: _buildComprehensiveTradingView(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _showFullscreenChart();
+        },
+        backgroundColor: Colors.blue,
+        child: const Icon(Icons.fullscreen, color: Colors.white),
+        tooltip: 'Open Full-Screen Chart',
+      ),
     );
   }
 
@@ -530,64 +539,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   ),
                 ),
               ),
-              
-              // Timeframe selector
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
-                  border: Border(
-                    top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'timeframe'.tr,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Responsive timeframe buttons
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth < 400) {
-                          // Use wrap for very small screens
-                          return Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _buildTimeframeButton('M1'),
-                              _buildTimeframeButton('M5'),
-                              _buildTimeframeButton('M15'),
-                              _buildTimeframeButton('H1'),
-                              _buildTimeframeButton('H4'),
-                              _buildTimeframeButton('D1'),
-                            ],
-                          );
-                        } else {
-                          // Use row for larger screens
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildTimeframeButton('M1'),
-                              _buildTimeframeButton('M5'),
-                              _buildTimeframeButton('M15'),
-                              _buildTimeframeButton('H1'),
-                              _buildTimeframeButton('H4'),
-                              _buildTimeframeButton('D1'),
-                            ],
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
+            
             ],
           ),
         );
@@ -984,24 +936,36 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   child: SizedBox(
                     width: canvasWidth,
                     height: constraints.maxHeight,
-                    child: InteractiveCandlestickChart(
-                      key: _chartKey,
-                      candles: candles,
-                      size: Size(canvasWidth, constraints.maxHeight),
-                      showFastMA: _showFastMA,
-                      showSlowMA: _showSlowMA,
-                      fastMAPeriod: _fastMAPeriod,
-                      slowMAPeriod: _slowMAPeriod,
-                      externalScroll: true,
+                    child: Stack(
+                      children: [
+                        InteractiveCandlestickChart(
+                          key: _chartKey,
+                          candles: candles,
+                          size: Size(canvasWidth, constraints.maxHeight),
+                          showFastMA: _showFastMA,
+                          showSlowMA: _showSlowMA,
+                          fastMAPeriod: _fastMAPeriod,
+                          slowMAPeriod: _slowMAPeriod,
+                          externalScroll: true,
+                        ),
+                        // Invisible tap area for full-screen
+                        Positioned.fill(
+                          child: GestureDetector(
+                            onTap: () {
+                              // Open full-screen chart on tap
+                              _showFullscreenChart();
+                            },
+                            behavior: HitTestBehavior.translucent,
+                            child: Container(
+                              color: Colors.transparent,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                // Chart control buttons
-                // Positioned(
-                //   top: 8,
-                //   right: 8,
-                //   child: _buildChartControls(),
-                // ),
+           
               ],
             );
           },
@@ -1310,28 +1274,15 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   }
 
   void _showFullscreenChart() {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog.fullscreen(
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text('chartFullscreen'.tr),
-            leading: IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          body: GetBuilder<ForexProvider>(
-            builder: (forexProvider) {
-              // Use cached data for fullscreen chart
-              final candles = _getChartData();
-              
-              return InteractiveCandlestickChart(
-                candles: candles,
-                size: Size(MediaQuery.of(context).size.width, MediaQuery.of(context).size.height - 100),
-              );
-            },
-          ),
+    final candles = _getChartData();
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullscreenChartPage(
+          symbol: _selectedSymbol,
+          timeframe: _selectedTimeframe,
+          initialCandles: candles,
         ),
       ),
     );
@@ -2173,15 +2124,15 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
     });
     
     return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      onDoubleTap: () => zoomIn(),
+      onTapDown: widget.externalScroll ? null : _onTapDown,
+      onTapUp: widget.externalScroll ? null : _onTapUp,
+      onTapCancel: widget.externalScroll ? null : _onTapCancel,
+      onDoubleTap: widget.externalScroll ? null : () => zoomIn(),
       onScaleStart: _onScaleStart,
       onScaleUpdate: _onScaleUpdate, // Only zooming allowed, panning disabled
       onScaleEnd: _onScaleEnd,
       // Use deferToChild to allow vertical scrolling to pass through to page
-      behavior: HitTestBehavior.deferToChild,
+      behavior: widget.externalScroll ? HitTestBehavior.translucent : HitTestBehavior.deferToChild,
       child: Stack(
         children: [
           CustomPaint(
