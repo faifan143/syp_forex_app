@@ -96,6 +96,7 @@ class Currency {
   final double changePercentage;
   final double mid;
   final String name;
+  final PreviousRates? previousRates;
 
   Currency({
     required this.ask,
@@ -104,6 +105,7 @@ class Currency {
     required this.changePercentage,
     required this.mid,
     required this.name,
+    this.previousRates,
   });
 
   factory Currency.fromJson(Map<String, dynamic> json) {
@@ -114,6 +116,9 @@ class Currency {
       changePercentage: (json['change_percentage'] ?? 0.0).toDouble(),
       mid: (json['mid'] ?? 0.0).toDouble(),
       name: json['name'] ?? '',
+      previousRates: json['previous_rates'] != null 
+          ? PreviousRates.fromJson(json['previous_rates'])
+          : null,
     );
   }
 
@@ -125,6 +130,7 @@ class Currency {
       'change_percentage': changePercentage,
       'mid': mid,
       'name': name,
+      'previous_rates': previousRates?.toJson(),
     };
   }
 
@@ -227,4 +233,60 @@ class OHLCV {
   String get formattedChangePercentageFromOpen => changePercentageFromOpen > 0 
       ? '+${changePercentageFromOpen.toStringAsFixed(2)}%' 
       : '${changePercentageFromOpen.toStringAsFixed(2)}%';
+}
+
+class PreviousRates {
+  final int ask;
+  final int bid;
+  final double mid;
+  final String source;
+  final String timestamp;
+
+  PreviousRates({
+    required this.ask,
+    required this.bid,
+    required this.mid,
+    required this.source,
+    required this.timestamp,
+  });
+
+  factory PreviousRates.fromJson(Map<String, dynamic> json) {
+    return PreviousRates(
+      ask: json['ask'] ?? 0,
+      bid: json['bid'] ?? 0,
+      mid: (json['mid'] ?? 0.0).toDouble(),
+      source: json['source'] ?? '',
+      timestamp: json['timestamp'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'ask': ask,
+      'bid': bid,
+      'mid': mid,
+      'source': source,
+      'timestamp': timestamp,
+    };
+  }
+
+  // Convenience getters
+  int get spread => bid - ask;
+  DateTime? get parsedTimestamp {
+    try {
+      return DateTime.parse(timestamp);
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  String get formattedAsk => ask.toString();
+  String get formattedBid => bid.toString();
+  String get formattedMid => mid.toStringAsFixed(1);
+  String get formattedSource => source.replaceAll('-', ' ').replaceAll('.com', '').toUpperCase();
+  String get formattedTimestamp {
+    final date = parsedTimestamp;
+    if (date == null) return timestamp;
+    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
 }

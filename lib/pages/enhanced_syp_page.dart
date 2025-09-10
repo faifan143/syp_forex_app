@@ -198,9 +198,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                     children: [
                       Text('${'change'.tr}:'),
                       Text(
-                        '0 SYP', // City rates don't have change data, showing placeholder
+                        _getUsdChangeText(),
                         style: TextStyle(
-                          color: Colors.grey,
+                          color: _getUsdChangeColor(),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -212,9 +212,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                     children: [
                       Text('${'changePercent'.tr}:'),
                       Text(
-                        '0.00%', // City rates don't have change percentage data, showing placeholder
+                        _getUsdChangePercentageText(),
                         style: TextStyle(
-                          color: Colors.grey,
+                          color: _getUsdChangeColor(),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -295,22 +295,35 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
 
           const SizedBox(height: 16),
           
-          // Last Updated
+          // Currencies Grid
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.update, color: Colors.grey[600]),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${'lastUpdated'.tr}: ${DateTime.now().toString().split('.')[0]}',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  Row(
+                    children: [
+                      Icon(Icons.currency_exchange, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'currencies'.tr,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 16),
+                  _buildCurrenciesGrid(),
                 ],
               ),
             ),
           ),
+
+          const SizedBox(height: 16),
+          
+   
         ],
       ),
     );
@@ -321,6 +334,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     
     // Filter to show only aleppo and idlib (exclude damascus as it's shown in main card)
     final comparisonCities = _comprehensiveData!.cityRates.entries
+        
         .toList();
     
     return Column(
@@ -368,6 +382,156 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     );
   }
 
+  Widget _buildCurrenciesGrid() {
+    if (_comprehensiveData == null || _comprehensiveData!.currencies.isEmpty) {
+      return const Center(
+        child: Text('No currency data available'),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 1.3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: _comprehensiveData!.currencies.length,
+      itemBuilder: (context, index) {
+        final currency = _comprehensiveData!.currencies[index];
+        return _buildCurrencyCard(currency);
+      },
+    );
+  }
+
+  Widget _buildCurrencyCard(Currency currency) {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Currency name
+            Text(
+              currency.name,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            
+            // Mid rate
+            Text(
+              currency.formattedMid,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.blue[700],
+              ),
+            ),
+            const SizedBox(height: 4),
+            
+            // Ask and Bid
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ask',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      currency.formattedAsk,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red[600],
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Bid',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      currency.formattedBid,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            
+            // Change info
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Change:',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Text(
+                  currency.formattedChange,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: currency.isPositiveChange ? Colors.green : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Change %:',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                Text(
+                  currency.formattedChangePercentage,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: currency.isPositiveChange ? Colors.green : Colors.red,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildRateInfo(String label, double value, Color color) {
     return Column(
@@ -388,6 +552,59 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
         ),
       ],
     );
+  }
+
+  // Helper methods for USD change calculations
+  Currency? _getUsdCurrency() {
+    if (_comprehensiveData == null) return null;
+    try {
+      return _comprehensiveData!.currencies.firstWhere((currency) => 
+          currency.name.toLowerCase().contains('usd') || 
+          currency.name.toLowerCase().contains('dollar'));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  String _getUsdChangeText() {
+    final usdCurrency = _getUsdCurrency();
+    if (usdCurrency?.previousRates == null) {
+      return '0 SYP'; // No previous rates available
+    }
+    
+    final currentMid = _comprehensiveData!.cityRates['damascus']?.mid ?? 0.0;
+    final previousMid = usdCurrency!.previousRates!.mid;
+    final change = currentMid - previousMid;
+    
+    return '${change > 0 ? '+' : ''}${change.toStringAsFixed(1)} SYP';
+  }
+
+  String _getUsdChangePercentageText() {
+    final usdCurrency = _getUsdCurrency();
+    if (usdCurrency?.previousRates == null) {
+      return '0.00%'; // No previous rates available
+    }
+    
+    final currentMid = _comprehensiveData!.cityRates['damascus']?.mid ?? 0.0;
+    final previousMid = usdCurrency!.previousRates!.mid;
+    
+    if (previousMid == 0) return '0.00%';
+    
+    final changePercentage = ((currentMid - previousMid) / previousMid) * 100;
+    return '${changePercentage > 0 ? '+' : ''}${changePercentage.toStringAsFixed(2)}%';
+  }
+
+  Color _getUsdChangeColor() {
+    final usdCurrency = _getUsdCurrency();
+    if (usdCurrency?.previousRates == null) {
+      return Colors.grey; // No previous rates available
+    }
+    
+    final currentMid = _comprehensiveData!.cityRates['damascus']?.mid ?? 0.0;
+    final previousMid = usdCurrency!.previousRates!.mid;
+    final change = currentMid - previousMid;
+    
+    return change >= 0 ? Colors.green : Colors.red;
   }
 
   Widget _buildOhlcvInfo(String label, double value) {
