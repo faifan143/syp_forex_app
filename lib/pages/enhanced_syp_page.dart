@@ -132,7 +132,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                         children: [
                           Row(
                             children: [
-                              Icon(IconlyBroken.exchange, color: Colors.blue[700], size: 20),
+                              Icon(IconlyBroken.swap, color: Colors.blue[700], size: 20),
                               const SizedBox(width: 8),
                               Text(
                                 'USD/SYP',
@@ -317,7 +317,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(IconlyBroken.exchange, color: Colors.blue[700]),
+                      Icon(IconlyBroken.swap, color: Colors.blue[700]),
                       const SizedBox(width: 8),
                       Text(
                         'currencies'.tr,
@@ -606,7 +606,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               children: [
                 Row(
                   children: [
-                    Icon(IconlyBroken.percent, size: 10, color: Colors.grey[600]),
+                    Icon(IconlyBroken.discount, size: 10, color: Colors.grey[600]),
                     const SizedBox(width: 2),
                     Text(
                       'Change %:',
@@ -773,7 +773,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isPositiveChange ? Icons.trending_up : Icons.trending_down,
+                      isPositiveChange ? IconlyBroken.arrow_up_2 : IconlyBroken.arrow_down_2,
                       size: 14,
                       color: changeColor,
                     ),
