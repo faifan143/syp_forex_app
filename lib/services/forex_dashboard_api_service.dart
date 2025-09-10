@@ -2,18 +2,19 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/forex_models.dart';
+import 'api_config_service.dart';
 
 class ForexDashboardApiService {
-  static const String _baseUrl = 'http://localhost:5001';
   
   /// Get comprehensive forex dashboard with 7-day predictions
   Future<ForexDashboardResponse> getForexDashboard({int retries = 2}) async {
     for (int attempt = 0; attempt <= retries; attempt++) {
       try {
-        print('🌐 [DASHBOARD_API] Fetching dashboard from $_baseUrl/forex/dashboard (Attempt ${attempt + 1}/${retries + 1})');
+        final url = ApiConfigService.getForexApiUrl('/forex/dashboard');
+        print('🌐 [DASHBOARD_API] Fetching dashboard from $url (Attempt ${attempt + 1}/${retries + 1})');
         
         final response = await http.get(
-          Uri.parse('$_baseUrl/forex/dashboard'),
+          Uri.parse(url),
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/syp_provider.dart';
 import '../controllers/translation_controller.dart';
+import '../models/comprehensive_models.dart';
+import '../services/comprehensive_api_service.dart';
 
 
 class EnhancedSypPage extends StatefulWidget {
@@ -12,16 +13,39 @@ class EnhancedSypPage extends StatefulWidget {
 }
 
 class _EnhancedSypPageState extends State<EnhancedSypPage> {
+  ComprehensiveResponse? _comprehensiveData;
+  bool _isLoading = false;
+  String? _error;
+  final ComprehensiveApiService _apiService = ComprehensiveApiService();
+
   @override
   void initState() {
     super.initState();
     
     // Initialize data when page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final sypProvider = Get.find<SypProvider>();
-      sypProvider.loadCurrentRates();
-      sypProvider.loadForecast();
+      _loadComprehensiveData();
     });
+  }
+
+  Future<void> _loadComprehensiveData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final data = await _apiService.getComprehensiveData();
+      setState(() {
+        _comprehensiveData = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -46,9 +70,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () {
-                final sypProvider = Get.find<SypProvider>();
-                sypProvider.loadCurrentRates(forceRefresh: true);
-                sypProvider.loadForecast(forceRefresh: true);
+                _loadComprehensiveData();
               },
               tooltip: 'refresh'.tr,
             ),
@@ -60,439 +82,292 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
   }
 
   Widget _buildCurrentRatesTab() {
-    return GetBuilder<SypProvider>(
-      builder: (sypProvider) {
-        if (sypProvider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (sypProvider.error != null) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
-                const SizedBox(height: 16),
-                Text('Error: ${sypProvider.error}'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    sypProvider.loadCurrentRates();
-                    sypProvider.loadForecast();
-                  },
-                  child: Text('retry'.tr),
-                ),
-              ],
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
+            const SizedBox(height: 16),
+            Text('Error: $_error'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                _loadComprehensiveData();
+              },
+              child: Text('retry'.tr),
             ),
-          );
-        }
+          ],
+        ),
+      );
+    }
 
-        final currentRates = sypProvider.currentRates;
-        final forecast = sypProvider.forecast;
-        
-        if (currentRates == null) {
-          return Center(child: Text('noDataAvailable'.tr));
-        }
+    if (_comprehensiveData == null) {
+      return Center(child: Text('noDataAvailable'.tr));
+    }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Main Rate Card
-              Card(
-                elevation: 4,
-                color: Theme.of(context).colorScheme.surface,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Main Rate Card
+          Card(
+            elevation: 4,
+            color: Theme.of(context).colorScheme.surface,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'USD/SYP',
-                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'blackMarketRate'.tr,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                currentRates.currentRates.mid.toStringAsFixed(2),
-                                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green[700],
-                                ),
-                              ),
-                              Text(
-                                'sypPerUsd'.tr,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildRateInfo('ask'.tr, currentRates.currentRates.ask, Colors.red[600]!),
-                          _buildRateInfo('bid'.tr, currentRates.currentRates.bid, Colors.green[600]!),
-                          _buildRateInfo('spread'.tr, currentRates.currentRates.spread, Colors.orange),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Change Information
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'dailyChange'.tr,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('change'.tr + ':'),
                           Text(
-                            '${currentRates.currentRates.change.toStringAsFixed(2)} SYP',
-                            style: TextStyle(
-                              color: currentRates.currentRates.change >= 0 ? Colors.green : Colors.red,
+                            'USD/SYP',
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          Text(
+                            'blackMarketRate'.tr,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('changePercent'.tr + ':'),
                           Text(
-                            '${currentRates.currentRates.changePercentage.toStringAsFixed(2)}%',
-                            style: TextStyle(
-                              color: currentRates.currentRates.changePercentage >= 0 ? Colors.green : Colors.red,
+                            _comprehensiveData!.cityRates['damascus']?.formattedMid ?? '0.0',
+                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                               fontWeight: FontWeight.bold,
+                              color: Colors.green[700],
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // OHLCV Data
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'tradingData'.tr,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(child: _buildOhlcvInfo('open'.tr, currentRates.ohlcv.open)),
-                          Expanded(child: _buildOhlcvInfo('high'.tr, currentRates.ohlcv.high)),
-                          Expanded(child: _buildOhlcvInfo('low'.tr, currentRates.ohlcv.low)),
-                          Expanded(child: _buildOhlcvInfo('close'.tr, currentRates.ohlcv.close)),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('volume'.tr + ':'),
                           Text(
-                            '${currentRates.ohlcv.volume.toStringAsFixed(0)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                 
-                    ],
-                  ),
-                ),
-              ),
-              
-       
-              const SizedBox(height: 16),
-              
-     // City Comparison Section
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.location_city, color: Colors.green[700]),
-                          const SizedBox(width: 8),
-                          Text(
-                            'cityComparison'.tr,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
+                            'sypPerUsd'.tr,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      _buildCityComparison(currentRates),
                     ],
                   ),
-                ),
-              ),
-
-                     const SizedBox(height: 16),
-              
-              // Last Updated
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Icon(Icons.update, color: Colors.grey[600]),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${'lastUpdated'.tr}: ${_formatDateTime(currentRates.timestamp)}',
-                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
+                      _buildRateInfo('ask'.tr, _comprehensiveData!.cityRates['damascus']?.ask.toDouble() ?? 0.0, Colors.red[600]!),
+                      _buildRateInfo('bid'.tr, _comprehensiveData!.cityRates['damascus']?.bid.toDouble() ?? 0.0, Colors.green[600]!),
+                      _buildRateInfo('spread'.tr, _comprehensiveData!.cityRates['damascus']?.spread.toDouble() ?? 0.0, Colors.orange),
                     ],
                   ),
-                ),
+                ],
               ),
+            ),
+          ),
               
-              const SizedBox(height: 16),
-
-              // Forecast Section
-              if (forecast != null) ...[
-                Card(
-                  color: Theme.of(context).colorScheme.surface,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.psychology, color: Colors.blue[700]),
-                            const SizedBox(width: 8),
-                            Text(
-                              'tomorrowsForecast'.tr,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'predictedRate'.tr,
-                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                ),
-                                Text(
-                                  forecast.prediction.rate.toStringAsFixed(2),
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue[700],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'expectedChange'.tr,
-                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                ),
-                                Text(
-                                  '${forecast.prediction.expectedChange.toStringAsFixed(2)} SYP',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: forecast.prediction.expectedChange >= 0 ? Colors.green : Colors.red,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('confidence'.tr + ':'),
-                            Text(
-                              '${forecast.prediction.confidenceInterval.rangePct.toStringAsFixed(1)}% ${'range'.tr}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                     
-                      ],
+          const SizedBox(height: 16),
+          
+          // Change Information
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'dailyChange'.tr,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${'change'.tr}:'),
+                      Text(
+                        '0 SYP', // City rates don't have change data, showing placeholder
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${'changePercent'.tr}:'),
+                      Text(
+                        '0.00%', // City rates don't have change percentage data, showing placeholder
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
               
-         
+          const SizedBox(height: 16),
+          
+          // OHLCV Data
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'tradingData'.tr,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: _buildOhlcvInfo('open'.tr, _comprehensiveData!.ohlcv.open)),
+                      Expanded(child: _buildOhlcvInfo('high'.tr, _comprehensiveData!.ohlcv.high)),
+                      Expanded(child: _buildOhlcvInfo('low'.tr, _comprehensiveData!.ohlcv.low)),
+                      Expanded(child: _buildOhlcvInfo('close'.tr, _comprehensiveData!.ohlcv.close)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${'volume'.tr}:'),
+                      Text(
+                        _comprehensiveData!.ohlcv.formattedVolume,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
               
-         
+          const SizedBox(height: 16),
+          
+          // City Comparison Section
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.location_city, color: Colors.green[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'cityComparison'.tr,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildCityComparison(),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+          
+          // Last Updated
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.update, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${'lastUpdated'.tr}: ${DateTime.now().toString().split('.')[0]}',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCityComparison() {
+    if (_comprehensiveData == null) return const SizedBox();
+    
+    // Filter to show only aleppo and idlib (exclude damascus as it's shown in main card)
+    final comparisonCities = _comprehensiveData!.cityRates.entries
+        .toList();
+    
+    return Column(
+      children: comparisonCities.map((entry) {
+        final cityName = entry.key;
+        final cityRate = entry.value;
+        
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                cityName,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Row(
+                children: [
+                  Text(
+                    cityRate.formattedMid,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Ask: ${cityRate.formattedAsk}',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Bid: ${cityRate.formattedBid}',
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
-      },
+      }).toList(),
     );
   }
 
-  Widget _buildCityComparison(currentRates) {
-    // Simulate city data - in real app this would come from API
-    final cities = [
-      {'name': 'aleppo'.tr, 'rate': currentRates.currentRates.mid, 'change': 0.27},
-      {'name': 'damascus'.tr, 'rate': currentRates.currentRates.mid + 5, 'change': 0.31},
-      {'name': 'idlib'.tr, 'rate': currentRates.currentRates.mid - 3, 'change': 0.22},
-    ];
-    
-    return Column(
-      children: cities.map((city) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              city['name'] as String,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Row(
-              children: [
-                Text(
-                  '${(city['rate'] as double).toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${(city['change'] as double).toStringAsFixed(2)}%',
-                  style: TextStyle(
-                    color: (city['change'] as double) >= 0 ? Colors.green : Colors.red,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      )).toList(),
-    );
-  }
-
-  Widget _buildMarketAnalysis(currentRates, forecast) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('marketTrend'.tr + ':'),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: currentRates.currentRates.change >= 0 ? Colors.green[600] : Colors.red[600],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                currentRates.currentRates.change >= 0 ? 'bullish'.tr : 'bearish'.tr,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('volatility'.tr + ':'),
-            Text(
-              currentRates.ohlcv.dayType == 'calm' ? 'low'.tr : 'normal'.tr,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('spread'.tr + ':'),
-            Text(
-              '${currentRates.currentRates.spread.toStringAsFixed(2)} SYP',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        if (forecast != null) ...[
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('tomorrowOutlook'.tr + ':'),
-              Text(
-                forecast.prediction.expectedChange >= 0 ? 'positive'.tr : 'negative'.tr,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: forecast.prediction.expectedChange >= 0 ? Colors.green : Colors.red,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
 
   Widget _buildRateInfo(String label, double value, Color color) {
     return Column(
@@ -533,21 +408,6 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     );
   }
 
-  String _formatDateTime(int timestamp) {
-    final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-    
-    if (difference.inMinutes < 1) {
-      return 'justNow'.tr;
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else {
-      return '${difference.inDays}d ago';
-    }
-  }
 
   Widget _buildNewFlag() {
     return Container(

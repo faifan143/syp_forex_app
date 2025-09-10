@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/forex_provider.dart';
 import '../models/forex_models.dart';
-import '../controllers/theme_controller.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -187,7 +186,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 16),
                 
                 // Forex Pairs List
-                ...rates.map((rate) => _buildForexPairCard(rate)).toList(),
+                ...rates.map((rate) => _buildForexPairCard(rate)),
               ],
             ),
           );
@@ -197,9 +196,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildForexPairCard(ForexRate rate) {
-    final isPositive = (rate.changePercent ?? 0) >= 0;
-    final changeColor = isPositive ? Colors.green : Colors.red;
-    final changeIcon = isPositive ? Icons.trending_up : Icons.trending_down;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -271,7 +267,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   Text(
-                    '${(rate.rate + (rate.rate * (rate.changePercent ?? 0) / 100)).toStringAsFixed(5)}',
+                    (rate.rate + (rate.rate * (rate.changePercent ?? 0) / 100)).toStringAsFixed(5),
                     style: TextStyle(
                       color: Colors.blue[700],
                       fontWeight: FontWeight.bold,
@@ -319,26 +315,6 @@ class _HomePageState extends State<HomePage> {
     return weekdays[targetDate.weekday - 1];
   }
 
-  // Format timestamp for display
-  String _formatTimestamp(String timestamp) {
-    try {
-      final dateTime = DateTime.parse(timestamp);
-      final now = DateTime.now();
-      final difference = now.difference(dateTime);
-      
-      if (difference.inMinutes < 1) {
-        return 'justNow'.tr;
-      } else if (difference.inMinutes < 60) {
-        return '${difference.inMinutes}m ago';
-      } else if (difference.inHours < 24) {
-        return '${difference.inHours}h ago';
-      } else {
-        return '${difference.inDays}d ago';
-      }
-    } catch (e) {
-      return 'unknown'.tr;
-    }
-  }
 
   // Build enhanced dashboard view with predictions
   Widget _buildDashboardView(ForexDashboardResponse dashboard) {
@@ -388,14 +364,14 @@ class _HomePageState extends State<HomePage> {
           // const SizedBox(height: 16),
           
           // Currency Cards with Predictions
-          ...dashboard.currencies.map((currency) => _buildCurrencyCard(currency)).toList(),
+          ...dashboard.currencies.map((currency) => _buildCurrencyCard(currency)),
         ],
       ),
     );
   }
 
   // Build individual currency card with predictions
-  Widget _buildCurrencyCard(ForexCurrency currency) {
+  Widget _buildCurrencyCard(Currency currency) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -416,21 +392,17 @@ class _HomePageState extends State<HomePage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: currency.isUp 
+                    color: currency.isTomorrowTrendUp 
                         ? Colors.green.withOpacity(0.1)
-                        : currency.isDown 
-                            ? Colors.red.withOpacity(0.1)
-                            : Colors.grey.withOpacity(0.1),
+                        : Colors.red.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    currency.trend.toUpperCase(),
+                    currency.tomorrowTrend.toUpperCase(),
                     style: TextStyle(
-                      color: currency.isUp 
+                      color: currency.isTomorrowTrendUp 
                           ? Colors.green[700]
-                          : currency.isDown 
-                              ? Colors.red[700]
-                              : Colors.grey[700],
+                          : Colors.red[700],
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -452,17 +424,17 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  currency.formattedDailyChange,
+                  currency.tomorrowChange >= 0 ? '+${currency.tomorrowChange.toStringAsFixed(4)}' : currency.tomorrowChange.toStringAsFixed(4),
                   style: TextStyle(
-                    color: currency.dailyChange >= 0 ? Colors.green : Colors.red,
+                    color: currency.tomorrowChange >= 0 ? Colors.green : Colors.red,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  currency.formattedDailyChangePercent,
+                  currency.formattedTomorrowChangePercent,
                   style: TextStyle(
-                    color: currency.dailyChange >= 0 ? Colors.green : Colors.red,
+                    color: currency.tomorrowChange >= 0 ? Colors.green : Colors.red,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -506,22 +478,22 @@ class _HomePageState extends State<HomePage> {
                       Row(
                         children: [
                           Text(
-                            currency.formattedTomorrowPrediction,
+                            currency.tomorrowPrediction.toStringAsFixed(4),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            currency.formattedPredictionChange,
+                            currency.tomorrowChange >= 0 ? '+${currency.tomorrowChange.toStringAsFixed(4)}' : currency.tomorrowChange.toStringAsFixed(4),
                             style: TextStyle(
-                              color: currency.predictionChange >= 0 ? Colors.green : Colors.red,
+                              color: currency.tomorrowChange >= 0 ? Colors.green : Colors.red,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            currency.formattedPredictionChangePercent,
+                            currency.formattedTomorrowChangePercent,
                             style: TextStyle(
-                              color: currency.predictionChange >= 0 ? Colors.green : Colors.red,
+                              color: currency.tomorrowChange >= 0 ? Colors.green : Colors.red,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -595,7 +567,7 @@ class _HomePageState extends State<HomePage> {
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 ],
               ),
