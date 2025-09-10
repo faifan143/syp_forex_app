@@ -123,52 +123,53 @@ class RealisticDataGenerator {
     required String timeframe,
     required String symbol,
     int days = 30, // Changed to 30 days (1 month)
+    double? basePrice, // Optional base price from dashboard data
   }) {
     int count;
-    double basePrice;
+    double actualBasePrice;
     double volatility;
     
     // Set parameters based on timeframe and symbol - OPTIMIZED FOR CHART DISPLAY
     switch (timeframe) {
       case 'M1':
         count = 500; // 500 candles for 1-minute (about 8 hours of data)
-        basePrice = _getBasePrice(symbol);
+        actualBasePrice = basePrice ?? _getBasePrice(symbol);
         volatility = 0.0001;
         break;
       case 'M5':
         count = 400; // 400 candles for 5-minute (about 33 hours of data)
-        basePrice = _getBasePrice(symbol);
+        actualBasePrice = basePrice ?? _getBasePrice(symbol);
         volatility = 0.0002;
         break;
       case 'M15':
         count = 300; // 300 candles for 15-minute (about 75 hours of data)
-        basePrice = _getBasePrice(symbol);
+        actualBasePrice = basePrice ?? _getBasePrice(symbol);
         volatility = 0.0003;
         break;
       case 'H1':
         count = 200; // 200 candles for 1-hour (about 8 days of data)
-        basePrice = _getBasePrice(symbol);
+        actualBasePrice = basePrice ?? _getBasePrice(symbol);
         volatility = 0.0005;
         break;
       case 'H4':
         count = 150; // 150 candles for 4-hour (about 25 days of data)
-        basePrice = _getBasePrice(symbol);
+        actualBasePrice = basePrice ?? _getBasePrice(symbol);
         volatility = 0.001;
         break;
       case 'D1':
         count = 30; // 30 candles for daily (1 month of data)
-        basePrice = _getBasePrice(symbol);
+        actualBasePrice = basePrice ?? _getBasePrice(symbol);
         volatility = 0.002;
         break;
       default:
         count = 200; // Default to 200 candles for good display
-        basePrice = 1.1000;
+        actualBasePrice = basePrice ?? 1.1000;
         volatility = 0.001;
     }
     
     return generateCandlestickData(
       count: count,
-      basePrice: basePrice,
+      basePrice: actualBasePrice,
       volatility: volatility,
       symbol: symbol,
     );

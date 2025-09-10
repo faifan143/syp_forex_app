@@ -24,8 +24,38 @@ class _SimplePaperTradingPageState extends State<SimplePaperTradingPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final forexProvider = context.read<ForexProvider>();
       final paperProvider = context.read<PaperTradingProvider>();
+      
+      // Load dashboard data first, then fallback to rates
+      forexProvider.loadForexDashboard(forceRefresh: true);
       forexProvider.loadForexRates();
-      paperProvider.updateForexRates(forexProvider.forexRates.values.toList());
+      
+      // Update paper trading with dashboard data
+      if (forexProvider.dashboardData != null) {
+        final rates = <ForexRate>[];
+        for (final currency in forexProvider.dashboardData!.currencies) {
+          final rate = ForexRate(
+            fromCurrency: currency.pair.split('/')[0],
+            toCurrency: currency.pair.split('/')[1],
+            symbol: currency.pair,
+            rate: currency.currentValue,
+            timestamp: DateTime.now(),
+            change: currency.tomorrowChange,
+            changePercent: currency.tomorrowChangePercent,
+          );
+          rates.add(rate);
+        }
+        paperProvider.updateForexRates(rates);
+        
+        // Update simulation base prices with dashboard data
+        final Map<String, double> dashboardPrices = {};
+        for (final currency in forexProvider.dashboardData!.currencies) {
+          dashboardPrices[currency.pair] = currency.currentValue;
+        }
+        paperProvider.updateSimulationBasePrices(dashboardPrices);
+      } else {
+        // Fallback to regular forex rates
+        paperProvider.updateForexRates(forexProvider.forexRates.values.toList());
+      }
     });
   }
 
@@ -40,7 +70,40 @@ class _SimplePaperTradingPageState extends State<SimplePaperTradingPage> {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               final forexProvider = context.read<ForexProvider>();
+              final paperProvider = context.read<PaperTradingProvider>();
+              
+              // Refresh both dashboard data and rates
+              forexProvider.loadForexDashboard(forceRefresh: true);
               forexProvider.loadForexRates();
+              
+              // Update paper trading with fresh data
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (forexProvider.dashboardData != null) {
+                  final rates = <ForexRate>[];
+                  for (final currency in forexProvider.dashboardData!.currencies) {
+                    final rate = ForexRate(
+                      fromCurrency: currency.pair.split('/')[0],
+                      toCurrency: currency.pair.split('/')[1],
+                      symbol: currency.pair,
+                      rate: currency.currentValue,
+                      timestamp: DateTime.now(),
+                      change: currency.tomorrowChange,
+                      changePercent: currency.tomorrowChangePercent,
+                    );
+                    rates.add(rate);
+                  }
+                  paperProvider.updateForexRates(rates);
+                  
+                  // Update simulation base prices with dashboard data
+                  final Map<String, double> dashboardPrices = {};
+                  for (final currency in forexProvider.dashboardData!.currencies) {
+                    dashboardPrices[currency.pair] = currency.currentValue;
+                  }
+                  paperProvider.updateSimulationBasePrices(dashboardPrices);
+                } else {
+                  paperProvider.updateForexRates(forexProvider.forexRates.values.toList());
+                }
+              });
             },
           ),
         ],

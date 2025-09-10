@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'dart:async';
 import '../providers/paper_trading_provider.dart';
 import '../providers/forex_provider.dart';
 import '../controllers/translation_controller.dart';
 import '../models/paper_trading_models.dart';
 import '../models/forex_models.dart';
 import '../services/realistic_data_generator.dart';
+import '../widgets/ai_recommender_widget.dart';
 import 'fullscreen_chart_page.dart';
 
 class ComprehensivePaperTradingPage extends StatefulWidget {
@@ -37,6 +39,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   // Chart data caching
   Map<String, Map<String, List<Map<String, double>>>> _cachedChartData = {};
   DateTime? _lastDataGeneration;
+  
+  // Timer for periodic dashboard data sync
+  Timer? _dashboardSyncTimer;
 
   // Color helper
   // ignore: unused_element
@@ -168,11 +173,23 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       Future.delayed(const Duration(milliseconds: 500), () {
         _updatePaperTradingWithForexData(forexProvider, paperProvider);
       });
+      
+      // Set up periodic refresh to sync with dashboard data
+      _dashboardSyncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+        if (forexProvider.dashboardData != null) {
+          _updatePaperTradingWithForexData(forexProvider, paperProvider);
+          // Clear chart cache to force refresh with new data
+          _cachedChartData.clear();
+          _lastDataGeneration = null;
+          setState(() {}); // Refresh the UI
+        }
+      });
     });
   }
 
   @override
   void dispose() {
+    _dashboardSyncTimer?.cancel();
     _volumeController.dispose();
     _stopLossController.dispose();
     _takeProfitController.dispose();
@@ -306,8 +323,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 _kpiTile(icon: Icons.account_balance_wallet, label: 'balance'.tr, value: balance, color: Colors.blue),
                 _kpiTile(icon: Icons.assessment, label: 'equity'.tr, value: equity, color: Colors.indigo),
                 _kpiTile(icon: Icons.shield, label: 'margin'.tr, value: margin, color: Colors.orange),
-                _kpiTile(icon: Icons.wallet_giftcard, label: 'free'.tr, value: freeMargin, color: Colors.green),
-                _levelTile(marginLevel, isMarginCall),
+                // _kpiTile(icon: Icons.wallet_giftcard, label: 'free'.tr, value: freeMargin, color: Colors.green),
+                // _levelTile(marginLevel, isMarginCall),
               ];
               if (isCompact) {
                 return Wrap(spacing: 12, runSpacing: 12, children: tiles);
@@ -456,78 +473,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           ),
           child: Column(
             children: [
-              // Symbol selector and price display
-              Container(
-                padding: const EdgeInsets.all(16),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isTight = constraints.maxWidth < 480;
-                    return Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 12,
-                      runSpacing: 8,
-                      children: [
-                      
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: isTight ? 140 : 220,
-                              ),
-                              child: DropdownButton<String>(
-                                isExpanded: true,
-                                value: _selectedSymbol,
-                                items: forexProvider.availablePairs.map((pair) {
-                                  return DropdownMenuItem(
-                                    value: pair['symbol'],
-                                    child: Text(pair['symbol']!),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedSymbol = value!;
-                                  });
-                                  _cachedChartData.clear();
-                                  final paperProvider = Get.find<PaperTradingProvider>();
-                                  paperProvider.loadChartData(_selectedSymbol, _selectedTimeframe);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        // Use simulation data when available, fallback to dashboard data
-                        GetBuilder<PaperTradingProvider>(
-                          builder: (paper) {
-                            double bid, ask;
-                            if (paper.isSimulationRunning && paper.currentPrices.containsKey(_selectedSymbol)) {
-                              // Use simulation data (which is now based on dashboard data)
-                              final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-                              ask = paper.currentPrices[_selectedSymbol]!;
-                              bid = ask - (spreadPercentage * ask);
-                            } else if (currentRate != null) {
-                              // Fallback to dashboard data
-                              final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-                              ask = currentRate.rate;
-                              bid = ask - (spreadPercentage * ask);
-                            } else {
-                              bid = 0; ask = 0;
-                            }
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildQuoteBadge('bid'.tr, bid, Colors.red[600]!),
-                                const SizedBox(width: 8),
-                                _buildQuoteBadge('ask'.tr, ask, Colors.green[600]!),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
+           
               
               // Chart area - Takes full available height with dual scrolling
               Expanded(
@@ -597,6 +543,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
             spread = askPrice - bidPrice; // Calculate actual spread
           }
         }
+        
+        // Update the current price for the AI recommender
+        _currentPrice = currentPrice;
         
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -714,6 +663,10 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                     
                     // Position type selector
                     _buildPositionTypeSelector(),
+                    const SizedBox(height: 20),
+                    
+                    // AI Recommender Widget
+                    _buildAIRecommenderSection(),
                     const SizedBox(height: 20),
                     
                     // Volume input
@@ -1106,7 +1059,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     );
   }
 
-  // Get chart data with proper caching and timeframe handling
+  // Get chart data based on dashboard data with proper caching and timeframe handling
   List<Map<String, double>> _getChartData() {
     final now = DateTime.now();
     
@@ -1128,11 +1081,32 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       }
     }
     
-    // Generate new data
+    // Get base price from dashboard data if available
+    final forexProvider = Get.find<ForexProvider>();
+    double basePrice = 1.1000; // Default fallback
+    
+    if (forexProvider.dashboardData != null) {
+      // Find the current price from dashboard data
+      try {
+        final currency = forexProvider.dashboardData!.currencies.firstWhere(
+          (c) => c.pair == _selectedSymbol,
+        );
+        basePrice = currency.currentValue;
+      } catch (e) {
+        // Symbol not found in dashboard data, use default
+        basePrice = 1.1000;
+      }
+    } else if (forexProvider.forexRates.containsKey(_selectedSymbol)) {
+      // Fallback to forex rates
+      basePrice = forexProvider.forexRates[_selectedSymbol]!.rate;
+    }
+    
+    // Generate new data based on dashboard price
     final newData = RealisticDataGenerator.generateTimeframeData(
       timeframe: _selectedTimeframe,
       symbol: _selectedSymbol,
       days: 7,
+      basePrice: basePrice, // Use dashboard price as base
     );
     
     // Cache the data
@@ -1585,6 +1559,60 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildAIRecommenderSection() {
+    return GetBuilder<ForexProvider>(
+      builder: (forexProvider) {
+        // Get current price data
+        final currentPrice = _currentPrice;
+        if (currentPrice <= 0) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info, color: Colors.orange[600]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'AI Recommender: Waiting for price data...',
+                    style: TextStyle(
+                      color: Colors.orange[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Get recent candles for technical analysis
+        final recentCandles = forexProvider.chartData?.candles ?? [];
+        
+        // Get currency data for fundamental analysis
+        final currencyData = forexProvider.dashboardData?.currencies
+            .where((c) => c.pair == _selectedSymbol)
+            .firstOrNull;
+
+        return AIRecommenderWidget(
+          symbol: _selectedSymbol,
+          currentPrice: currentPrice,
+          recentCandles: recentCandles,
+          currencyData: currencyData,
+          onRecommendationChanged: () {
+            // Optionally update UI based on recommendation
+            setState(() {});
+          },
+        );
+      },
     );
   }
 

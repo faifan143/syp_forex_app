@@ -45,16 +45,21 @@ class PaperTradingProvider extends GetxController {
     update();
   }
   
-  // Start market simulation
+  // Start market simulation (now primarily for chart data, prices come from dashboard)
   void startSimulation() {
     if (_isSimulationRunning) return;
     
     _isSimulationRunning = true;
     _marketService.startSimulation();
     
-    // Subscribe to price updates
+    // Subscribe to price updates (but dashboard data takes priority)
     _priceSubscription = _marketService.priceStream.listen((prices) {
-      _currentPrices = prices;
+      // Only update prices that aren't already set by dashboard data
+      for (String symbol in prices.keys) {
+        if (!_currentPrices.containsKey(symbol)) {
+          _currentPrices[symbol] = prices[symbol]!;
+        }
+      }
       _updatePositionPrices();
       update();
     });
@@ -316,12 +321,10 @@ class PaperTradingProvider extends GetxController {
     // Update the market simulation service with real market data as base prices
     _marketService.updateBasePrices(basePrices);
     
-    // If simulation is running, update current prices immediately
-    if (_isSimulationRunning) {
-      _currentPrices = Map.from(basePrices);
-      _updatePositionPrices();
-      update();
-    }
+    // Always update current prices with dashboard data (don't rely on simulation)
+    _currentPrices = Map.from(basePrices);
+    _updatePositionPrices();
+    update();
   }
 
   // Open a new position
@@ -336,10 +339,17 @@ class PaperTradingProvider extends GetxController {
     _setLoading(true);
     
     try {
-      // Get current market price if simulation is running
-      final currentPrice = _isSimulationRunning 
-          ? (type == PositionType.buy ? _marketService.getAskPrice(symbol) : _marketService.getBidPrice(symbol))
-          : price;
+      // Get current market price from dashboard data first, then simulation
+      double currentPrice;
+      if (_currentPrices.containsKey(symbol)) {
+        // Use dashboard data prices
+        currentPrice = type == PositionType.buy ? getCurrentAsk(symbol) : getCurrentBid(symbol);
+      } else if (_isSimulationRunning) {
+        // Fallback to simulation
+        currentPrice = type == PositionType.buy ? _marketService.getAskPrice(symbol) : _marketService.getBidPrice(symbol);
+      } else {
+        currentPrice = price;
+      }
       
       final newPosition = Position(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -390,10 +400,17 @@ class PaperTradingProvider extends GetxController {
         orElse: () => throw Exception('Position not found'),
       );
 
-      // Get current market price if simulation is running
-      final currentClosePrice = _isSimulationRunning 
-          ? (position.type == PositionType.buy ? _marketService.getBidPrice(position.symbol) : _marketService.getAskPrice(position.symbol))
-          : closePrice;
+      // Get current market price from dashboard data first, then simulation
+      double currentClosePrice;
+      if (_currentPrices.containsKey(position.symbol)) {
+        // Use dashboard data prices
+        currentClosePrice = position.type == PositionType.buy ? getCurrentBid(position.symbol) : getCurrentAsk(position.symbol);
+      } else if (_isSimulationRunning) {
+        // Fallback to simulation
+        currentClosePrice = position.type == PositionType.buy ? _marketService.getBidPrice(position.symbol) : _marketService.getAskPrice(position.symbol);
+      } else {
+        currentClosePrice = closePrice;
+      }
 
       // Calculate realized P&L (using same calculation as unrealizedPnL)
       const double pipValue = 10.0; // $10 per pip per lot
@@ -536,13 +553,29 @@ class PaperTradingProvider extends GetxController {
     // Always realistic mode for paper trading
   }
 
-  // Get current bid price for a symbol
+  // Get current bid price for a symbol (based on dashboard data)
   double getCurrentBid(String symbol) {
+    // First try to get from current prices (updated from dashboard)
+    if (_currentPrices.containsKey(symbol)) {
+      final midPrice = _currentPrices[symbol]!;
+      final spread = _marketService.getDynamicSpread(symbol);
+      return midPrice - (spread / 2);
+    }
+    
+    // Fallback to simulation service
     return _marketService.getBidPriceRealistic(symbol);
   }
 
-  // Get current ask price for a symbol
+  // Get current ask price for a symbol (based on dashboard data)
   double getCurrentAsk(String symbol) {
+    // First try to get from current prices (updated from dashboard)
+    if (_currentPrices.containsKey(symbol)) {
+      final midPrice = _currentPrices[symbol]!;
+      final spread = _marketService.getDynamicSpread(symbol);
+      return midPrice + (spread / 2);
+    }
+    
+    // Fallback to simulation service
     return _marketService.getAskPriceRealistic(symbol);
   }
 }
