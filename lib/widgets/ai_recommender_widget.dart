@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../models/ai_recommendation.dart';
 import '../models/forex_models.dart';
 import '../services/ai_recommender_service.dart';
+import '../controllers/translation_controller.dart';
 
 class AIRecommenderWidget extends StatefulWidget {
   final String symbol;
@@ -28,6 +29,7 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
     with TickerProviderStateMixin {
   AIRecommendation? _recommendation;
   bool _isLoading = false;
+  String _lastLanguage = '';
   late AnimationController _pulseController;
   late AnimationController _fadeController;
   late Animation<double> _pulseAnimation;
@@ -52,7 +54,18 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
     );
 
+    // Generate initial recommendation
     _generateRecommendation();
+  }
+
+  @override
+  void didUpdateWidget(AIRecommenderWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Regenerate recommendation when widget updates (e.g., language change)
+    if (oldWidget.symbol != widget.symbol || 
+        oldWidget.currentPrice != widget.currentPrice) {
+      _generateRecommendation();
+    }
   }
 
   @override
@@ -101,34 +114,49 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            Theme.of(context).colorScheme.primary.withOpacity(0.05),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 16),
-            if (_isLoading) _buildLoadingWidget(),
-            if (_recommendation != null && !_isLoading) _buildRecommendationWidget(),
-          ],
-        ),
-      ),
+    return GetBuilder<TranslationController>(
+      builder: (translationController) {
+        // Regenerate recommendation when language changes
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (translationController.currentLanguage != _lastLanguage) {
+            _lastLanguage = translationController.currentLanguage;
+            // Small delay to ensure translations are loaded
+            Future.delayed(const Duration(milliseconds: 200), () {
+              _generateRecommendation();
+            });
+          }
+        });
+
+        return Container(
+          margin: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                Theme.of(context).colorScheme.primary.withOpacity(0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 16),
+                if (_isLoading) _buildLoadingWidget(),
+                if (_recommendation != null && !_isLoading) _buildRecommendationWidget(),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -160,13 +188,7 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
-              Text(
-                'aiPowered'.tr,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
+             
             ],
           ),
         ),
@@ -219,8 +241,6 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
       child: Column(
         children: [
           _buildRecommendationCard(),
-          const SizedBox(height: 16),
-          _buildDetailsSection(),
         ],
       ),
     );
@@ -241,6 +261,7 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
       ),
       child: Row(
         children: [
+   
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -305,7 +326,9 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: rec.expectedPriceChange >= 0 ? Colors.green : Colors.red,
+                  color: rec.expectedPriceChange >= 0 
+                    ? Theme.of(context).colorScheme.primary 
+                    : Theme.of(context).colorScheme.error,
                 ),
               ),
               Text(
@@ -317,6 +340,8 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
               ),
             ],
           ),
+       
+
         ],
       ),
     );
@@ -327,24 +352,11 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
     
     return Column(
       children: [
-        _buildDetailRow('reasoning'.tr, rec.reasoning),
         const SizedBox(height: 12),
         _buildDetailRow('targetPrice'.tr, rec.formattedTargetPrice),
         _buildDetailRow('stopLossPrice'.tr, rec.formattedStopLossPrice),
         _buildDetailRow('riskRewardRatio'.tr, rec.formattedRiskRewardRatio),
-        _buildDetailRow('marketSentiment'.tr, rec.marketSentiment),
-        if (rec.keyFactors.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _buildKeyFactorsSection(),
-        ],
-        if (rec.technicalIndicators.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _buildTechnicalIndicatorsSection(),
-        ],
-        if (rec.fundamentalFactors.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _buildFundamentalFactorsSection(),
-        ],
+    
       ],
     );
   }
@@ -476,17 +488,17 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
+        color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.blue.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.secondary.withOpacity(0.3),
         ),
       ),
       child: Text(
         indicator,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
-          color: Colors.blue,
+          color: Theme.of(context).colorScheme.secondary,
         ),
       ),
     );

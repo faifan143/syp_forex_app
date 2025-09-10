@@ -489,12 +489,58 @@ class AppTranslations extends Translations {
       'veryHigh': 'Very High',
       'neutral': 'Neutral',
       'hold': 'Hold',
-      'buyRecommendation': 'Buy Recommendation',
-      'sellRecommendation': 'Sell Recommendation',
-      'holdRecommendation': 'Hold Recommendation',
+      'buyRecommendation': 'Buy',
+      'sellRecommendation': 'Sell',
+      'holdRecommendation': 'Hold',
       'aiPowered': 'AI Powered',
       'liveAnalysis': 'Live Analysis',
       'refreshAnalysis': 'Refresh Analysis',
+      'waitingForPriceData': 'Waiting for price data...',
+      
+      // AI Recommender Analysis
+      'technicalAnalysisShows': 'Technical analysis shows {trend} momentum',
+      'technicalAnalysisIndicates': 'Technical analysis indicates {trend} pressure',
+      'fundamentalFactorsSupportUpward': 'Fundamental factors support upward movement',
+      'fundamentalFactorsSuggestDownward': 'Fundamental factors suggest downward movement',
+      'mixedSignalsFromAnalysis': 'Mixed signals from technical and fundamental analysis',
+      'marketConditionsUncertain': 'Market conditions are uncertain',
+      'confidenceLevel': 'Confidence level',
+      
+      // Technical Trends
+      'bullish': 'bullish',
+      'bearish': 'bearish',
+      'neutral': 'neutral',
+      
+      // Market Sentiment
+      'bullishSentiment': 'Bullish',
+      'bearishSentiment': 'Bearish',
+      'neutralSentiment': 'Neutral',
+      
+      // Technical Indicators
+      'rsiOverbought': 'RSI Overbought',
+      'rsiOversold': 'RSI Oversold',
+      'macdBullish': 'MACD Bullish',
+      'macdBearish': 'MACD Bearish',
+      'bollingerOverbought': 'Bollinger Overbought',
+      'bollingerOversold': 'Bollinger Oversold',
+      'insufficientData': 'Insufficient data',
+      
+      // Fundamental Factors
+      'strongMomentum': 'Strong {trend} momentum',
+      'weeklyTrend': 'Weekly {trend} trend',
+      'positive7DayForecast': 'Positive 7-day forecast',
+      'negative7DayForecast': 'Negative 7-day forecast',
+      
+      // Form Hints
+      'enterVolumeHint': 'Enter volume (e.g., 0.1)',
+      'usdExample': 'USD (e.g., 50)',
+      'usdExample100': 'USD (e.g., 100)',
+      
+      // Time Horizons
+      'timeHorizon1To2Hours': '1-2 hours',
+      'timeHorizon2To4Hours': '2-4 hours',
+      'timeHorizon4To8Hours': '4-8 hours',
+      'timeHorizon8To24Hours': '8-24 hours',
     },
     'ar': {
       // App Title
@@ -982,12 +1028,58 @@ class AppTranslations extends Translations {
       'veryHigh': 'عالي جداً',
       'neutral': 'محايد',
       'hold': 'انتظار',
-      'buyRecommendation': 'توصية شراء',
-      'sellRecommendation': 'توصية بيع',
-      'holdRecommendation': 'توصية انتظار',
+      'buyRecommendation': ' شراء',
+      'sellRecommendation': ' بيع',
+      'holdRecommendation': ' انتظار',
       'aiPowered': 'مدعوم بالذكاء الاصطناعي',
       'liveAnalysis': 'التحليل المباشر',
       'refreshAnalysis': 'تحديث التحليل',
+      'waitingForPriceData': 'في انتظار بيانات الأسعار...',
+      
+      // AI Recommender Analysis
+      'technicalAnalysisShows': 'التحليل الفني يظهر زخم {trend}',
+      'technicalAnalysisIndicates': 'التحليل الفني يشير إلى ضغط {trend}',
+      'fundamentalFactorsSupportUpward': 'العوامل الأساسية تدعم الحركة الصاعدة',
+      'fundamentalFactorsSuggestDownward': 'العوامل الأساسية تشير إلى الحركة الهابطة',
+      'mixedSignalsFromAnalysis': 'إشارات مختلطة من التحليل الفني والأساسي',
+      'marketConditionsUncertain': 'ظروف السوق غير مؤكدة',
+      'confidenceLevel': 'مستوى الثقة',
+      
+      // Technical Trends
+      'bullish': 'صاعد',
+      'bearish': 'هابط',
+      'neutral': 'محايد',
+      
+      // Market Sentiment
+      'bullishSentiment': 'صاعد',
+      'bearishSentiment': 'هابط',
+      'neutralSentiment': 'محايد',
+      
+      // Technical Indicators
+      'rsiOverbought': 'RSI مشترى أكثر من اللازم',
+      'rsiOversold': 'RSI مباع أكثر من اللازم',
+      'macdBullish': 'MACD صاعد',
+      'macdBearish': 'MACD هابط',
+      'bollingerOverbought': 'بولينجر مشترى أكثر من اللازم',
+      'bollingerOversold': 'بولينجر مباع أكثر من اللازم',
+      'insufficientData': 'بيانات غير كافية',
+      
+      // Fundamental Factors
+      'strongMomentum': 'زخم {trend} قوي',
+      'weeklyTrend': 'اتجاه أسبوعي {trend}',
+      'positive7DayForecast': 'توقع إيجابي لـ 7 أيام',
+      'negative7DayForecast': 'توقع سلبي لـ 7 أيام',
+      
+      // Form Hints
+      'enterVolumeHint': 'أدخل الحجم (مثال: 0.1)',
+      'usdExample': 'دولار أمريكي (مثال: 50)',
+      'usdExample100': 'دولار أمريكي (مثال: 100)',
+      
+      // Time Horizons
+      'timeHorizon1To2Hours': '1-2 ساعة',
+      'timeHorizon2To4Hours': '2-4 ساعات',
+      'timeHorizon4To8Hours': '4-8 ساعات',
+      'timeHorizon8To24Hours': '8-24 ساعة',
     },
   };
 }

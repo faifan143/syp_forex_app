@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 enum RecommendationType {
   buy,
@@ -110,24 +111,24 @@ class AIRecommendation {
   String get typeDisplayName {
     switch (type) {
       case RecommendationType.buy:
-        return 'Buy';
+        return 'buyRecommendation'.tr;
       case RecommendationType.sell:
-        return 'Sell';
+        return 'sellRecommendation'.tr;
       case RecommendationType.hold:
-        return 'Hold';
+        return 'holdRecommendation'.tr;
     }
   }
 
   String get confidenceDisplayName {
     switch (confidence) {
       case ConfidenceLevel.low:
-        return 'Low';
+        return 'low'.tr;
       case ConfidenceLevel.medium:
-        return 'Medium';
+        return 'medium'.tr;
       case ConfidenceLevel.high:
-        return 'High';
+        return 'high'.tr;
       case ConfidenceLevel.veryHigh:
-        return 'Very High';
+        return 'veryHigh'.tr;
     }
   }
 

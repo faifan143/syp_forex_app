@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:get/get.dart';
 import '../models/ai_recommendation.dart';
 import '../models/forex_models.dart';
 
@@ -198,7 +199,7 @@ class AIRecommenderService {
       targetPrice: targetPrice,
       stopLossPrice: stopLossPrice,
       riskRewardRatio: riskRewardRatio,
-      marketSentiment: fundamentalSentiment,
+      marketSentiment: _getTranslatedMarketSentiment(fundamentalSentiment),
       technicalIndicators: technicalAnalysis['indicators'] as List<String>,
       fundamentalFactors: fundamentalAnalysis['factors'] as List<String>,
     );
@@ -299,21 +300,21 @@ class AIRecommenderService {
     final indicators = <String>[];
     
     if (rsi > 70) {
-      indicators.add('RSI Overbought');
+      indicators.add('rsiOverbought'.tr);
     } else if (rsi < 30) {
-      indicators.add('RSI Oversold');
+      indicators.add('rsiOversold'.tr);
     }
     
     if (macd > 0) {
-      indicators.add('MACD Bullish');
+      indicators.add('macdBullish'.tr);
     } else if (macd < 0) {
-      indicators.add('MACD Bearish');
+      indicators.add('macdBearish'.tr);
     }
     
     if (bollinger == 'overbought') {
-      indicators.add('Bollinger Overbought');
+      indicators.add('bollingerOverbought'.tr);
     } else if (bollinger == 'oversold') {
-      indicators.add('Bollinger Oversold');
+      indicators.add('bollingerOversold'.tr);
     }
     
     return indicators;
@@ -323,19 +324,19 @@ class AIRecommenderService {
     final factors = <String>[];
     
     if (currencyData.tomorrowChangePercent.abs() > 1.0) {
-      factors.add('Strong ${currencyData.tomorrowTrend} momentum');
+      factors.add('strongMomentum'.tr.replaceAll('{trend}', currencyData.tomorrowTrend.tr));
     }
     
     if (currencyData.weekChangePercent.abs() > 2.0) {
-      factors.add('Weekly ${currencyData.weekTrend} trend');
+      factors.add('weeklyTrend'.tr.replaceAll('{trend}', currencyData.weekTrend.tr));
     }
     
     if (currencyData.forecast7Days.isNotEmpty) {
       final avgForecast = currencyData.forecast7Days.reduce((a, b) => a + b) / currencyData.forecast7Days.length;
       if (avgForecast > currencyData.currentValue * 1.01) {
-        factors.add('Positive 7-day forecast');
+        factors.add('positive7DayForecast'.tr);
       } else if (avgForecast < currencyData.currentValue * 0.99) {
-        factors.add('Negative 7-day forecast');
+        factors.add('negative7DayForecast'.tr);
       }
     }
     
@@ -361,13 +362,13 @@ class AIRecommenderService {
   String _getTimeHorizon(ConfidenceLevel confidence) {
     switch (confidence) {
       case ConfidenceLevel.low:
-        return '1-2 hours';
+        return 'timeHorizon1To2Hours'.tr;
       case ConfidenceLevel.medium:
-        return '2-4 hours';
+        return 'timeHorizon2To4Hours'.tr;
       case ConfidenceLevel.high:
-        return '4-8 hours';
+        return 'timeHorizon4To8Hours'.tr;
       case ConfidenceLevel.veryHigh:
-        return '8-24 hours';
+        return 'timeHorizon8To24Hours'.tr;
     }
   }
 
@@ -383,21 +384,21 @@ class AIRecommenderService {
     final reasons = <String>[];
     
     if (type == RecommendationType.buy) {
-      reasons.add('Technical analysis shows ${technicalTrend} momentum');
+      reasons.add('technicalAnalysisShows'.tr.replaceAll('{trend}', technicalTrend.tr));
       if (fundamentalSentiment == 'bullish') {
-        reasons.add('Fundamental factors support upward movement');
+        reasons.add('fundamentalFactorsSupportUpward'.tr);
       }
     } else if (type == RecommendationType.sell) {
-      reasons.add('Technical analysis indicates ${technicalTrend} pressure');
+      reasons.add('technicalAnalysisIndicates'.tr.replaceAll('{trend}', technicalTrend.tr));
       if (fundamentalSentiment == 'bearish') {
-        reasons.add('Fundamental factors suggest downward movement');
+        reasons.add('fundamentalFactorsSuggestDownward'.tr);
       }
     } else {
-      reasons.add('Mixed signals from technical and fundamental analysis');
-      reasons.add('Market conditions are uncertain');
+      reasons.add('mixedSignalsFromAnalysis'.tr);
+      reasons.add('marketConditionsUncertain'.tr);
     }
     
-    reasons.add('Confidence level: ${confidence.toString().split('.').last}');
+    reasons.add('${'confidenceLevel'.tr}: ${confidence.toString().split('.').last.tr}');
     
     return reasons.join('. ');
   }
@@ -412,5 +413,17 @@ class AIRecommenderService {
     factors.addAll(fundamentalFactors.take(2));
     
     return factors;
+  }
+
+  String _getTranslatedMarketSentiment(String sentiment) {
+    switch (sentiment.toLowerCase()) {
+      case 'bullish':
+        return 'bullishSentiment'.tr;
+      case 'bearish':
+        return 'bearishSentiment'.tr;
+      case 'neutral':
+      default:
+        return 'neutralSentiment'.tr;
+    }
   }
 }
