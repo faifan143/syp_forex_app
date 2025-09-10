@@ -503,45 +503,75 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         double askPrice = 0.0;
         double spread = 0.0;
         
-        if (paperProvider.isSimulationRunning && paperProvider.currentPrices.containsKey(_selectedSymbol)) {
-          // Use simulation data (which is now based on dashboard data)
+        // ALWAYS prioritize dashboard data first, then fallback to simulation
+        ForexRate? currentRate;
+        if (forexProvider.dashboardData != null) {
+          // Convert symbol format from EUR/USD to EURUSD to match API format
+          final apiSymbol = _selectedSymbol.replaceAll('/', '');
+          print('🔍 [PAPER_TRADING] Available pairs in dashboard: ${forexProvider.dashboardData!.currencies.map((c) => c.pair).toList()}');
+          print('🔍 [PAPER_TRADING] Looking for symbol: $_selectedSymbol -> converted to: $apiSymbol');
+          
+          // Find currency in dashboard data using converted symbol
+          final currency = forexProvider.dashboardData!.currencies
+              .where((c) => c.pair == apiSymbol)
+              .firstOrNull;
+          if (currency != null) {
+            print('📊 [PAPER_TRADING] Using dashboard data for $_selectedSymbol: ${currency.currentValue}');
+            // Extract currencies from pair (e.g., EURUSD -> EUR, USD)
+            final pair = currency.pair;
+            String fromCurrency, toCurrency;
+            if (pair.startsWith('USD')) {
+              // USD pairs: USDJPY -> USD, JPY
+              fromCurrency = 'USD';
+              toCurrency = pair.substring(3);
+            } else {
+              // Other pairs: EURUSD -> EUR, USD
+              fromCurrency = pair.substring(0, 3);
+              toCurrency = pair.substring(3);
+            }
+            
+            currentRate = ForexRate(
+              fromCurrency: fromCurrency,
+              toCurrency: toCurrency,
+              symbol: _selectedSymbol, // Use original format for display
+              rate: currency.currentValue,
+              timestamp: DateTime.now(),
+              change: currency.tomorrowChange,
+              changePercent: currency.tomorrowChangePercent,
+            );
+          } else {
+            print('⚠️ [PAPER_TRADING] Symbol $_selectedSymbol not found in dashboard data');
+          }
+        } else {
+          print('⚠️ [PAPER_TRADING] Dashboard data is null');
+        }
+        
+        if (currentRate == null && forexProvider.forexRates.containsKey(_selectedSymbol)) {
+          // Fallback to regular forex rates
+          print('📊 [PAPER_TRADING] Using forex rates for $_selectedSymbol');
+          currentRate = forexProvider.forexRates[_selectedSymbol];
+        }
+        
+        if (currentRate == null && paperProvider.isSimulationRunning && paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+          // Last resort: use simulation data
+          print('📊 [PAPER_TRADING] Using simulation data for $_selectedSymbol');
           final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
           currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
           askPrice = currentPrice;
           bidPrice = askPrice - (spreadPercentage * askPrice);
           spread = askPrice - bidPrice;
+        }
+        
+        if (currentRate != null) {
+          // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
+          final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
+          currentPrice = currentRate.rate;
+          askPrice = currentRate.rate; // Use current rate as ask price
+          bidPrice = askPrice - (spreadPercentage * askPrice); // Calculate bid using the formula
+          spread = askPrice - bidPrice; // Calculate actual spread
+          print('💰 [PAPER_TRADING] Calculated prices - Bid: $bidPrice, Ask: $askPrice, Spread: $spread');
         } else {
-          // Try to get data from dashboard first, then fallback to rates
-          ForexRate? currentRate;
-          if (forexProvider.dashboardData != null) {
-            // Find currency in dashboard data
-            final currency = forexProvider.dashboardData!.currencies
-                .where((c) => c.pair == _selectedSymbol)
-                .firstOrNull;
-            if (currency != null) {
-              currentRate = ForexRate(
-                fromCurrency: currency.pair.split('/')[0],
-                toCurrency: currency.pair.split('/')[1],
-                symbol: currency.pair,
-                rate: currency.currentValue,
-                timestamp: DateTime.now(),
-                change: currency.tomorrowChange,
-                changePercent: currency.tomorrowChangePercent,
-              );
-            }
-          } else {
-            // Fallback to regular forex rates
-            currentRate = forexProvider.forexRates[_selectedSymbol];
-          }
-          
-          if (currentRate != null) {
-            // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
-            final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-            currentPrice = currentRate.rate;
-            askPrice = currentRate.rate; // Use current rate as ask price
-            bidPrice = askPrice - (spreadPercentage * askPrice); // Calculate bid using the formula
-            spread = askPrice - bidPrice; // Calculate actual spread
-          }
+          print('❌ [PAPER_TRADING] No current rate found for $_selectedSymbol');
         }
         
         // Update the current price for the AI recommender
