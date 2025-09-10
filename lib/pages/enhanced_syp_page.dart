@@ -338,33 +338,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
           
           // Tomorrow's Prediction Card
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        IconlyBroken.chart,
-                        color: Colors.orange[600],
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Tomorrow\'s Prediction',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange[700],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPredictionCard(),
-                ],
-              ),
-            ),
+            child: _buildPredictionCard(),
           ),
    
         ],
@@ -395,7 +369,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   Icon(
                     IconlyBroken.location,
                     size: 16,
-                    color: cityName == 'aleppo' ? Colors.blue[600] : Colors.orange[600],
+                    color: cityName == 'damascus' ? Colors.blue[600] : Colors.orange[600],
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -710,8 +684,14 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
 
   Widget _buildPredictionCard() {
     if (_comprehensiveData == null) {
-      return const Center(
-        child: Text('No prediction data available'),
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: const Center(
+          child: Text(
+            'No prediction data',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
       );
     }
 
@@ -719,8 +699,14 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     final currentRate = _comprehensiveData!.cityRates['damascus'];
     
     if (currentRate == null) {
-      return const Center(
-        child: Text('No current rate data available'),
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: const Center(
+          child: Text(
+            'No current rate data',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
       );
     }
 
@@ -736,37 +722,48 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.orange[50]!,
-            Colors.orange[100]!,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.orange[200]!,
+          color: changeColor.withOpacity(0.3),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: changeColor.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          // Prediction Header
+          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Predicted Rate',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.orange[800],
-                ),
+              Row(
+                children: [
+                  Icon(
+                    IconlyBroken.chart,
+                    color: changeColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Tomorrow\'s Prediction',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: changeColor.withOpacity(0.2),
+                  color: changeColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -774,16 +771,16 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   children: [
                     Icon(
                       isPositiveChange ? IconlyBroken.arrow_up_2 : IconlyBroken.arrow_down_2,
-                      size: 14,
-                      color: changeColor,
+                      size: 12,
+                      color: Colors.white,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       isPositiveChange ? 'UP' : 'DOWN',
-                      style: TextStyle(
-                        color: changeColor,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 10,
                       ),
                     ),
                   ],
@@ -793,157 +790,120 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
           ),
           const SizedBox(height: 16),
           
-          // Main Prediction Value
-          Center(
-            child: Text(
-              prediction.formattedMid,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.orange[800],
-              ),
+          // Main prediction value
+          Text(
+            prediction.formattedMid,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: changeColor,
             ),
           ),
-          const SizedBox(height: 8),
-          
           Text(
             'SYP',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.orange[600],
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 16),
           
-          // Ask and Bid
+          // Trading details
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Column(
-                children: [
-                  Text(
-                    'Ask',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    prediction.formattedAsk,
-                    style: TextStyle(
-                      color: Colors.red[600],
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              Expanded(
+                child: _buildCompactDetail('Ask', prediction.formattedAsk, Colors.red[600]!),
               ),
-              Column(
-                children: [
-                  Text(
-                    'Bid',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    prediction.formattedBid,
-                    style: TextStyle(
-                      color: Colors.green[600],
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              Expanded(
+                child: _buildCompactDetail('Bid', prediction.formattedBid, Colors.green[600]!),
               ),
-              Column(
-                children: [
-                  Text(
-                    'Spread',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    prediction.spread.toString(),
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              Expanded(
+                child: _buildCompactDetail('Spread', prediction.spread.toString(), Colors.grey[600]!),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           
-          // Change Information
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: changeColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: changeColor.withOpacity(0.3),
-                width: 1,
+          // Change info
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Change: ${change > 0 ? '+' : ''}${change.toStringAsFixed(1)} SYP',
+                style: TextStyle(
+                  color: changeColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
               ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Expected Change',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      '${change > 0 ? '+' : ''}${change.toStringAsFixed(1)} SYP',
-                      style: TextStyle(
-                        color: changeColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+              Text(
+                '${changePercentage > 0 ? '+' : ''}${changePercentage.toStringAsFixed(2)}%',
+                style: TextStyle(
+                  color: changeColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Change %',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text(
-                      '${changePercentage > 0 ? '+' : ''}${changePercentage.toStringAsFixed(2)}%',
-                      style: TextStyle(
-                        color: changeColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCompactDetail(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTradingDetail(String label, String value, Color color, IconData icon) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 
