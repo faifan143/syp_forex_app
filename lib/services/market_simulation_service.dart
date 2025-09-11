@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:math';
 
 class MarketSimulationService {
-  static final MarketSimulationService _instance = MarketSimulationService._internal();
+  static final MarketSimulationService _instance =
+      MarketSimulationService._internal();
   factory MarketSimulationService() => _instance;
   MarketSimulationService._internal();
 
@@ -10,13 +11,18 @@ class MarketSimulationService {
   final Map<String, double> _currentPrices = {};
   final Map<String, List<Map<String, double>>> _chartData = {};
   final Random _random = Random();
-  
+  String _currentTimeframe = '1m'; // Default timeframe
+
   // Market data streams
-  final StreamController<Map<String, double>> _priceController = StreamController<Map<String, double>>.broadcast();
-  final StreamController<Map<String, List<Map<String, double>>>> _chartController = StreamController<Map<String, List<Map<String, double>>>>.broadcast();
-  
+  final StreamController<Map<String, double>> _priceController =
+      StreamController<Map<String, double>>.broadcast();
+  final StreamController<Map<String, List<Map<String, double>>>>
+  _chartController =
+      StreamController<Map<String, List<Map<String, double>>>>.broadcast();
+
   Stream<Map<String, double>> get priceStream => _priceController.stream;
-  Stream<Map<String, List<Map<String, double>>>> get chartStream => _chartController.stream;
+  Stream<Map<String, List<Map<String, double>>>> get chartStream =>
+      _chartController.stream;
 
   // Currency pairs with realistic base prices
   final Map<String, double> _basePrices = {
@@ -48,18 +54,61 @@ class MarketSimulationService {
 
   bool _isRunning = false;
 
-  void startSimulation() {
+  void startSimulation({String timeframe = '1m'}) {
     if (_isRunning) return;
-    
+
     _isRunning = true;
+    _currentTimeframe = timeframe;
     _initializePrices();
     _initializeChartData();
-    
-    // Start price simulation timer (every 2 seconds)
-    _simulationTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+
+    // Start price simulation timer with dynamic interval based on timeframe
+    final interval = _getUpdateInterval(timeframe);
+    print(
+      '🔄 [MARKET_SIMULATION] Starting simulation with ${timeframe} timeframe (${interval.inSeconds}s interval)',
+    );
+    _simulationTimer = Timer.periodic(interval, (timer) {
       _updatePrices();
       _updateChartData();
     });
+  }
+
+  // Update simulation with new timeframe
+  void updateTimeframe(String timeframe) {
+    if (!_isRunning || _currentTimeframe == timeframe) return;
+
+    print(
+      '🔄 [MARKET_SIMULATION] Updating timeframe from $_currentTimeframe to $timeframe',
+    );
+    _currentTimeframe = timeframe;
+
+    // Restart timer with new interval
+    _simulationTimer?.cancel();
+    final interval = _getUpdateInterval(timeframe);
+    _simulationTimer = Timer.periodic(interval, (timer) {
+      _updatePrices();
+      _updateChartData();
+    });
+  }
+
+  // Get update interval based on timeframe
+  Duration _getUpdateInterval(String timeframe) {
+    switch (timeframe) {
+      case '1m':
+        return const Duration(seconds: 1); // 1 second for 1-minute charts
+      case '5m':
+        return const Duration(seconds: 5); // 5 seconds for 5-minute charts
+      case '15m':
+        return const Duration(seconds: 15); // 15 seconds for 15-minute charts
+      case '1h':
+        return const Duration(seconds: 30); // 30 seconds for hourly charts
+      case '4h':
+        return const Duration(seconds: 60); // 1 minute for 4-hour charts
+      case '1d':
+        return const Duration(seconds: 300); // 5 minutes for daily charts
+      default:
+        return const Duration(seconds: 2); // Default fallback
+    }
   }
 
   void stopSimulation() {
@@ -75,7 +124,7 @@ class MarketSimulationService {
     for (String symbol in newBasePrices.keys) {
       _basePrices[symbol] = newBasePrices[symbol]!;
     }
-    
+
     // If simulation is running, update current prices immediately
     if (_isRunning) {
       for (String symbol in newBasePrices.keys) {
@@ -84,7 +133,9 @@ class MarketSimulationService {
       print('🔄 [MARKET_SIMULATION] Updated current prices: $_currentPrices');
       _priceController.add(Map.from(_currentPrices));
     } else {
-      print('⚠️ [MARKET_SIMULATION] Simulation not running, cannot update current prices');
+      print(
+        '⚠️ [MARKET_SIMULATION] Simulation not running, cannot update current prices',
+      );
     }
   }
 
@@ -106,29 +157,36 @@ class MarketSimulationService {
     final basePrice = _basePrices[symbol]!;
     final volatility = _volatility[symbol]!;
     final List<Map<String, double>> candles = [];
-    
+
     double currentPrice = basePrice;
-    
+
     // Generate reasonable amount of initial data for good chart display
     for (int i = 0; i < 200; i++) {
       // Generate realistic price movement
       final change = _generatePriceChange(volatility);
       final open = currentPrice;
       final close = currentPrice + change;
-      final high = [open, close].reduce((a, b) => a > b ? a : b) + (volatility * _random.nextDouble());
-      final low = [open, close].reduce((a, b) => a < b ? a : b) - (volatility * _random.nextDouble());
-      
+      final high =
+          [open, close].reduce((a, b) => a > b ? a : b) +
+          (volatility * _random.nextDouble());
+      final low =
+          [open, close].reduce((a, b) => a < b ? a : b) -
+          (volatility * _random.nextDouble());
+
       candles.add({
         'open': open,
         'high': high,
         'low': low,
         'close': close,
-        'time': DateTime.now().subtract(Duration(hours: 200 - i)).millisecondsSinceEpoch.toDouble(),
+        'time': DateTime.now()
+            .subtract(Duration(hours: 200 - i))
+            .millisecondsSinceEpoch
+            .toDouble(),
       });
-      
+
       currentPrice = close;
     }
-    
+
     return candles;
   }
 
@@ -137,19 +195,35 @@ class MarketSimulationService {
     final u1 = _random.nextDouble();
     final u2 = _random.nextDouble();
     final z0 = sqrt(-2 * log(u1)) * cos(2 * pi * u2);
-    
+
     // Apply volatility and some trend
-    final trend = (_random.nextDouble() - 0.5) * 0.0001; // Small trend component
+    final trend =
+        (_random.nextDouble() - 0.5) * 0.0001; // Small trend component
     return (z0 * volatility) + trend;
   }
 
   void _updatePrices() {
+    print(
+      '🔄 [MARKET_SIMULATION] Updating prices for ${_currentPrices.length} symbols',
+    );
     for (String symbol in _currentPrices.keys) {
-      final volatility = _volatility[symbol]!;
+      final volatility =
+          _volatility[symbol] ?? 0.0001; // Default volatility if null
       final change = _generatePriceChange(volatility);
       final oldPrice = _currentPrices[symbol]!;
-      _currentPrices[symbol] = (_currentPrices[symbol]! + change).clamp(0.0001, 999.9999);
-      print('📈 [MARKET_SIMULATION] $symbol: ${oldPrice.toStringAsFixed(5)} -> ${_currentPrices[symbol]!.toStringAsFixed(5)} (change: ${change.toStringAsFixed(6)})');
+      _currentPrices[symbol] = (_currentPrices[symbol]! + change).clamp(
+        0.0001,
+        999.9999,
+      );
+      print(
+        '📈 [MARKET_SIMULATION] $symbol: ${oldPrice.toStringAsFixed(5)} -> ${_currentPrices[symbol]!.toStringAsFixed(5)} (change: ${change.toStringAsFixed(6)})',
+      );
+    }
+    print(
+      '🔄 [MARKET_SIMULATION] Broadcasting price update to ${_priceController.hasListener ? 'listeners' : 'NO LISTENERS'}',
+    );
+    if (!_priceController.hasListener) {
+      print('⚠️ [MARKET_SIMULATION] WARNING: No listeners on price stream!');
     }
     _priceController.add(Map.from(_currentPrices));
   }
@@ -158,15 +232,20 @@ class MarketSimulationService {
     for (String symbol in _chartData.keys) {
       final candles = _chartData[symbol]!;
       final currentPrice = _currentPrices[symbol]!;
-      
+
       // Update the last candle or create a new one
       if (candles.isNotEmpty) {
         final lastCandle = candles.last;
         final now = DateTime.now();
-        final lastTime = DateTime.fromMillisecondsSinceEpoch(lastCandle['time']!.toInt());
-        
-        // If more than 1 minute has passed, create new candle
-        if (now.difference(lastTime).inMinutes >= 1) {
+        final lastTime = DateTime.fromMillisecondsSinceEpoch(
+          lastCandle['time']!.toInt(),
+        );
+
+        // Get candle duration based on timeframe
+        final candleDuration = _getCandleDuration(_currentTimeframe);
+
+        // If enough time has passed for a new candle, create one
+        if (now.difference(lastTime) >= candleDuration) {
           candles.add({
             'open': lastCandle['close']!,
             'high': currentPrice,
@@ -174,20 +253,49 @@ class MarketSimulationService {
             'close': currentPrice,
             'time': now.millisecondsSinceEpoch.toDouble(),
           });
-          
+
           // Keep only last 200 candles for good chart display
           if (candles.length > 200) {
             candles.removeAt(0);
           }
         } else {
           // Update current candle
-          lastCandle['high'] = [lastCandle['high']!, currentPrice].reduce((a, b) => a > b ? a : b);
-          lastCandle['low'] = [lastCandle['low']!, currentPrice].reduce((a, b) => a < b ? a : b);
+          final currentHigh = lastCandle['high'] ?? currentPrice;
+          final currentLow = lastCandle['low'] ?? currentPrice;
+
+          lastCandle['high'] = [
+            currentHigh,
+            currentPrice,
+          ].reduce((a, b) => a > b ? a : b);
+          lastCandle['low'] = [
+            currentLow,
+            currentPrice,
+          ].reduce((a, b) => a < b ? a : b);
           lastCandle['close'] = currentPrice;
         }
       }
     }
     _chartController.add(Map.from(_chartData));
+  }
+
+  // Get candle duration based on timeframe
+  Duration _getCandleDuration(String timeframe) {
+    switch (timeframe) {
+      case '1m':
+        return const Duration(minutes: 1);
+      case '5m':
+        return const Duration(minutes: 5);
+      case '15m':
+        return const Duration(minutes: 15);
+      case '1h':
+        return const Duration(hours: 1);
+      case '4h':
+        return const Duration(hours: 4);
+      case '1d':
+        return const Duration(days: 1);
+      default:
+        return const Duration(minutes: 1);
+    }
   }
 
   Map<String, double> getCurrentPrices() {
@@ -235,7 +343,7 @@ class MarketSimulationService {
     final baseSpread = _getBaseSpread(symbol);
     final timeMultiplier = _getTimeMultiplier();
     final volatilityMultiplier = _volatility[symbol] ?? 0.001;
-    
+
     return baseSpread * timeMultiplier * (1 + volatilityMultiplier * 10);
   }
 
@@ -272,7 +380,7 @@ class MarketSimulationService {
   double _getTimeMultiplier() {
     final now = DateTime.now();
     final hour = now.hour;
-    
+
     // Higher spreads during off-market hours
     if (hour >= 22 || hour <= 6) {
       return 1.5; // 50% higher spread
@@ -308,4 +416,3 @@ class MarketSimulationService {
     _chartController.close();
   }
 }
-

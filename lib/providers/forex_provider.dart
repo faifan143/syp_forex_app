@@ -18,12 +18,14 @@ class ForexProvider extends GetxController {
   String? _ratesError;
   String? _dashboardError;
   Timer? _refreshTimer;
-  
+
   // Caching
   DateTime? _lastDashboardFetch;
   DateTime? _lastRatesFetch;
-  static const Duration _cacheDuration = Duration(minutes: 5); // Cache for 5 minutes
-  
+  static const Duration _cacheDuration = Duration(
+    minutes: 5,
+  ); // Cache for 5 minutes
+
   // Services
   final MarketSimulationService _marketService = MarketSimulationService();
   final ForexDashboardApiService _dashboardService = ForexDashboardApiService();
@@ -40,11 +42,13 @@ class ForexProvider extends GetxController {
   String? get chartError => _chartError;
   String? get ratesError => _ratesError;
   String? get dashboardError => _dashboardError;
-  
+
   // Cache checking methods
-  bool get isDashboardCacheValid => _lastDashboardFetch != null && 
+  bool get isDashboardCacheValid =>
+      _lastDashboardFetch != null &&
       DateTime.now().difference(_lastDashboardFetch!) < _cacheDuration;
-  bool get isRatesCacheValid => _lastRatesFetch != null && 
+  bool get isRatesCacheValid =>
+      _lastRatesFetch != null &&
       DateTime.now().difference(_lastRatesFetch!) < _cacheDuration;
 
   // Available pairs and timeframes (hardcoded for simulation)
@@ -102,13 +106,13 @@ class ForexProvider extends GetxController {
       // Get current prices from market simulation
       final currentPrices = _marketService.getCurrentPrices();
       final rates = <String, ForexRate>{};
-      
+
       for (final pair in availablePairs) {
         final symbol = pair['symbol']!;
         final fromCurrency = pair['from']!;
         final toCurrency = pair['to']!;
         final currentPrice = currentPrices[symbol] ?? 1.0;
-        
+
         // Create simulated ForexRate
         final rate = ForexRate(
           fromCurrency: fromCurrency,
@@ -116,12 +120,18 @@ class ForexProvider extends GetxController {
           symbol: symbol,
           rate: currentPrice,
           timestamp: DateTime.now(),
-          change: (currentPrice * 0.001) * (DateTime.now().millisecond % 2 == 0 ? 1 : -1), // Simulated change
-          changePercent: (DateTime.now().millisecond % 2 == 0 ? 0.1 : -0.1), // Simulated change %
+          change:
+              (currentPrice * 0.001) *
+              (DateTime.now().millisecond % 2 == 0
+                  ? 1
+                  : -1), // Simulated change
+          changePercent: (DateTime.now().millisecond % 2 == 0
+              ? 0.1
+              : -0.1), // Simulated change %
         );
         rates[symbol] = rate;
       }
-      
+
       _forexRates = rates;
       _lastRatesFetch = DateTime.now(); // Update cache timestamp
       _isLoadingRates = false;
@@ -147,19 +157,30 @@ class ForexProvider extends GetxController {
 
     try {
       developer.log('Loading forex dashboard...', name: 'ForexProvider');
-      
+
       // Add timeout wrapper for the entire operation
-      final dashboardResponse = await _dashboardService.getForexDashboard().timeout(
-        const Duration(seconds: 90), // 90 seconds total timeout
-        onTimeout: () {
-          throw TimeoutException('Dashboard request timed out after 90 seconds', const Duration(seconds: 90));
-        },
-      );
-      
+      final dashboardResponse = await _dashboardService
+          .getForexDashboard()
+          .timeout(
+            const Duration(seconds: 90), // 90 seconds total timeout
+            onTimeout: () {
+              throw TimeoutException(
+                'Dashboard request timed out after 90 seconds',
+                const Duration(seconds: 90),
+              );
+            },
+          );
+
       _dashboardData = dashboardResponse;
       _lastDashboardFetch = DateTime.now(); // Update cache timestamp
-      
-      developer.log('Dashboard loaded: ${dashboardResponse.currencies.length} currencies', name: 'ForexProvider');
+
+      // Update simulation base prices with real dashboard data
+      _updateSimulationWithDashboardData(dashboardResponse);
+
+      developer.log(
+        'Dashboard loaded: ${dashboardResponse.currencies.length} currencies',
+        name: 'ForexProvider',
+      );
       update();
     } catch (e) {
       _dashboardError = 'Failed to load dashboard: $e';
@@ -167,6 +188,45 @@ class ForexProvider extends GetxController {
     } finally {
       _isLoadingDashboard = false;
       update();
+    }
+  }
+
+  // Update simulation base prices with dashboard data
+  void _updateSimulationWithDashboardData(
+    ForexDashboardResponse dashboardData,
+  ) {
+    try {
+      // Convert dashboard data to base prices map
+      final Map<String, double> basePrices = {};
+
+      for (final currency in dashboardData.currencies) {
+        // Convert API format (EURUSD) to display format (EUR/USD)
+        final pair = currency.pair;
+        String displaySymbol;
+
+        if (pair.startsWith('USD')) {
+          // USD pairs: USDJPY -> USD/JPY
+          displaySymbol = 'USD/${pair.substring(3)}';
+        } else {
+          // Other pairs: EURUSD -> EUR/USD
+          displaySymbol = '${pair.substring(0, 3)}/${pair.substring(3)}';
+        }
+
+        basePrices[displaySymbol] = currency.currentValue;
+      }
+
+      // Update the market simulation service with real market data as base prices
+      _marketService.updateBasePrices(basePrices);
+
+      developer.log(
+        'Updated simulation base prices with dashboard data: ${basePrices.length} symbols',
+        name: 'ForexProvider',
+      );
+    } catch (e) {
+      developer.log(
+        'Error updating simulation with dashboard data: $e',
+        name: 'ForexProvider',
+      );
     }
   }
 
@@ -179,17 +239,23 @@ class ForexProvider extends GetxController {
     try {
       // Get chart data from market simulation
       final chartData = _marketService.getChartDataForSymbol(_selectedPair);
-      
+
       if (chartData.isNotEmpty) {
         // Convert to ForexChartData format
-        final candles = chartData.map((candle) => Candlestick(
-          open: candle['open']!,
-          high: candle['high']!,
-          low: candle['low']!,
-          close: candle['close']!,
-          timestamp: DateTime.fromMillisecondsSinceEpoch(candle['time']!.toInt()),
-          volume: 1000, // Default volume for simulated data
-        )).toList();
+        final candles = chartData
+            .map(
+              (candle) => Candlestick(
+                open: candle['open']!,
+                high: candle['high']!,
+                low: candle['low']!,
+                close: candle['close']!,
+                timestamp: DateTime.fromMillisecondsSinceEpoch(
+                  candle['time']!.toInt(),
+                ),
+                volume: 1000, // Default volume for simulated data
+              ),
+            )
+            .toList();
 
         _chartData = ForexChartData(
           symbol: _selectedPair,
@@ -198,7 +264,7 @@ class ForexProvider extends GetxController {
           lastUpdate: DateTime.now(),
         );
       }
-      
+
       _isLoadingChart = false;
       update();
     } catch (e) {
@@ -222,7 +288,6 @@ class ForexProvider extends GetxController {
     _refreshTimer?.cancel();
     _refreshTimer = null;
   }
-
 
   @override
   void dispose() {

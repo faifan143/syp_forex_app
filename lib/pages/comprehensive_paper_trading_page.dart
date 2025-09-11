@@ -26,7 +26,7 @@ class _ComprehensivePaperTradingPageState
   final _takeProfitController = TextEditingController();
 
   String _selectedSymbol = 'EUR/USD';
-  final String _selectedTimeframe = 'D1';
+  String _selectedTimeframe = '1h'; // Default to 1 hour timeframe
   PositionType _selectedType = PositionType.buy;
 
   // Key for accessing the interactive chart
@@ -51,6 +51,34 @@ class _ComprehensivePaperTradingPageState
     final hsl = HSLColor.fromColor(c);
     final hslDark = hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
     return hslDark.toColor();
+  }
+
+  // Helper method to build statistic items
+  Widget _buildStatItem(
+    String label,
+    String value,
+    IconData icon, {
+    Color? valueColor,
+  }) {
+    return Column(
+      children: [
+        Icon(icon, size: 16, color: Colors.blue[600]),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: valueColor ?? Colors.black87,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
   }
 
   // Get pip size for different currency pairs
@@ -99,7 +127,16 @@ class _ComprehensivePaperTradingPageState
     final forexProvider = Get.find<ForexProvider>();
     final paperProvider = Get.find<PaperTradingProvider>();
 
-    // First try dashboard data (real market data)
+    // PRIORITIZE SIMULATION DATA for real-time updates in open positions
+    if (paperProvider.isSimulationRunning &&
+        paperProvider.currentPrices.containsKey(position.symbol)) {
+      print(
+        '🔄 [OPEN_POSITIONS] Using simulation data for ${position.symbol}: ${paperProvider.currentPrices[position.symbol]}',
+      );
+      return paperProvider.currentPrices[position.symbol]!;
+    }
+
+    // Fallback to dashboard data (static data)
     if (forexProvider.dashboardData != null) {
       // Convert symbol format to match API (EUR/USD -> EURUSD)
       final apiSymbol = position.symbol.replaceAll('/', '');
@@ -108,17 +145,17 @@ class _ComprehensivePaperTradingPageState
           .firstOrNull;
 
       if (currency != null) {
+        print(
+          '🔄 [OPEN_POSITIONS] Using dashboard data for ${position.symbol}: ${currency.currentValue}',
+        );
         return currency.currentValue;
       }
     }
 
-    // Fallback to simulation data
-    if (paperProvider.isSimulationRunning &&
-        paperProvider.currentPrices.containsKey(position.symbol)) {
-      return paperProvider.currentPrices[position.symbol]!;
-    }
-
     // Last resort: use stored current price
+    print(
+      '🔄 [OPEN_POSITIONS] Using position current price for ${position.symbol}: ${position.currentPrice}',
+    );
     return position.currentPrice;
   }
 
@@ -206,7 +243,7 @@ class _ComprehensivePaperTradingPageState
       String formattedPair;
       if (pair.startsWith('USD')) {
         // USD pairs: USDJPY -> USD/JPY
-        formattedPair = '${pair.substring(0, 3)}/${pair.substring(3)}';
+        formattedPair = 'USD/${pair.substring(3)}';
       } else {
         // Other pairs: EURUSD -> EUR/USD
         formattedPair = '${pair.substring(0, 3)}/${pair.substring(3)}';
@@ -256,6 +293,25 @@ class _ComprehensivePaperTradingPageState
   // Calculate realistic spread based on currency pair using percentage-based formula
   // Formula: Bid ≈ Ask - (spread_percentage × Ask) => Spread = spread_percentage × Ask
 
+  // Change timeframe and update simulation
+  void _changeTimeframe(String timeframe) {
+    if (_selectedTimeframe != timeframe) {
+      _selectedTimeframe = timeframe;
+
+      // Update simulation with new timeframe
+      final paperProvider = Get.find<PaperTradingProvider>();
+      paperProvider.updateTimeframe(timeframe);
+
+      // Clear chart cache to force refresh with new timeframe
+      _cachedChartData.clear();
+      _lastDataGeneration = null;
+
+      // Chart will automatically refresh due to setState
+
+      setState(() {}); // Refresh the UI
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -267,7 +323,9 @@ class _ComprehensivePaperTradingPageState
       // Load forex dashboard data (same as home page) with fallback to rates
       forexProvider.loadForexDashboard(forceRefresh: true);
       paperProvider.initialize();
-      paperProvider.startSimulation(); // Start paper trading simulation
+      paperProvider.startSimulation(
+        timeframe: _selectedTimeframe,
+      ); // Start paper trading simulation with timeframe
 
       // Update paper trading with forex data after a short delay
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -507,322 +565,435 @@ class _ComprehensivePaperTradingPageState
   Widget _buildChartSection() {
     return GetBuilder<ForexProvider>(
       builder: (forexProvider) {
-        // Get current rate from dashboard data or forex rates (same as home page)
-        ForexRate? currentRate;
-        if (forexProvider.dashboardData != null) {
-          // Find currency in dashboard data
-          final currency = forexProvider.dashboardData!.currencies
-              .where((c) => c.pair == _selectedSymbol)
-              .firstOrNull;
-          if (currency != null) {
-            currentRate = ForexRate(
-              fromCurrency: currency.pair.split('/')[0],
-              toCurrency: currency.pair.split('/')[1],
-              symbol: currency.pair,
-              rate: currency.currentValue,
-              timestamp: DateTime.now(),
-              change: currency.tomorrowChange,
-              changePercent: currency.tomorrowChangePercent,
-            );
-          }
-        } else {
-          // Fallback to regular forex rates
-          currentRate = forexProvider.forexRates[_selectedSymbol];
-        }
+        return GetBuilder<PaperTradingProvider>(
+          builder: (paperProvider) {
+            // Get current rate from dashboard data or forex rates (same as home page)
+            ForexRate? currentRate;
+            if (forexProvider.dashboardData != null) {
+              // Find currency in dashboard data
+              final currency = forexProvider.dashboardData!.currencies
+                  .where((c) => c.pair == _selectedSymbol)
+                  .firstOrNull;
+              if (currency != null) {
+                currentRate = ForexRate(
+                  fromCurrency: currency.pair.split('/')[0],
+                  toCurrency: currency.pair.split('/')[1],
+                  symbol: currency.pair,
+                  rate: currency.currentValue,
+                  timestamp: DateTime.now(),
+                  change: currency.tomorrowChange,
+                  changePercent: currency.tomorrowChangePercent,
+                );
+              }
+            } else {
+              // Fallback to regular forex rates
+              currentRate = forexProvider.forexRates[_selectedSymbol];
+            }
 
-        return Container(
-          margin: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).colorScheme.surfaceContainerHighest,
-                Theme.of(context).colorScheme.surface,
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
-                spreadRadius: 1,
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Chart area - Takes full available height with dual scrolling
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: _buildScrollableChart(currentRate),
-                  ),
+            return Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(context).colorScheme.surfaceContainerHighest,
+                    Theme.of(context).colorScheme.surface,
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.shadow.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
-          ),
+              child: Column(
+                children: [
+                  // Timeframe selector
+                  _buildTimeframeSelector(),
+                  // Chart area - Takes full available height with dual scrolling
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: _buildScrollableChart(currentRate),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildTimeframeSelector() {
+    final timeframes = [
+      {'value': '1m', 'label': '1M', 'interval': '1s'},
+      {'value': '5m', 'label': '5M', 'interval': '5s'},
+      {'value': '15m', 'label': '15M', 'interval': '15s'},
+      {'value': '1h', 'label': '1H', 'interval': '30s'},
+      {'value': '4h', 'label': '4H', 'interval': '1m'},
+      {'value': '1d', 'label': '1D', 'interval': '5m'},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Text(
+            'Timeframe:',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: timeframes.map((tf) {
+                  final isSelected = _selectedTimeframe == tf['value'];
+                  return Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => _changeTimeframe(tf['value']!),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.outline.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              tf['label']!,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Theme.of(context).colorScheme.onPrimary
+                                    : Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              tf['interval']!,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimary.withOpacity(0.8)
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withOpacity(0.6),
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildTradingFormSection() {
     return GetBuilder<ForexProvider>(
       builder: (forexProvider) {
-        final paperProvider = Get.find<PaperTradingProvider>();
-        // Get current price from simulation or forex data (same as home page)
-        double currentPrice = 0.0;
-        double bidPrice = 0.0;
-        double askPrice = 0.0;
-        double spread = 0.0;
+        return GetBuilder<PaperTradingProvider>(
+          builder: (paperProvider) {
+            // Get current price from simulation or forex data (same as home page)
+            double currentPrice = 0.0;
+            double bidPrice = 0.0;
+            double askPrice = 0.0;
+            double spread = 0.0;
 
-        // Prioritize dashboard data first (real data), then fallback to simulation data
-        ForexRate? currentRate;
+            // PRIORITIZE SIMULATION DATA for real-time updates in paper trading
+            ForexRate? currentRate;
 
-        // First try dashboard data (real market data)
-        if (forexProvider.dashboardData != null) {
-          // Fallback to dashboard data
-          final apiSymbol = _selectedSymbol.replaceAll('/', '');
+            // First try simulation data (for real-time updates in paper trading)
+            if (paperProvider.isSimulationRunning &&
+                paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+              // Use simulation data for real-time updates
+              print(
+                '🔄 [TRADING_FORM] Using simulation data for $_selectedSymbol',
+              );
+              final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
+              currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
+              askPrice = currentPrice;
+              bidPrice = askPrice - (spreadPercentage * askPrice);
+              spread = askPrice - bidPrice;
+              print(
+                '🔄 [TRADING_FORM] Simulation price: $currentPrice, Ask: $askPrice, Bid: $bidPrice',
+              );
+            }
+            // Fallback to dashboard data (static data)
+            if (currentPrice == 0.0 && forexProvider.dashboardData != null) {
+              // Fallback to dashboard data
+              print(
+                '🔄 [TRADING_FORM] Using dashboard data for $_selectedSymbol',
+              );
+              final apiSymbol = _selectedSymbol.replaceAll('/', '');
 
-          // Find currency in dashboard data using converted symbol
-          final currency = forexProvider.dashboardData!.currencies
-              .where((c) => c.pair == apiSymbol)
-              .firstOrNull;
-          if (currency != null) {
-            // Extract currencies from pair (e.g., EURUSD -> EUR, USD)
-            final pair = currency.pair;
-            String fromCurrency, toCurrency;
-            if (pair.startsWith('USD')) {
-              // USD pairs: USDJPY -> USD, JPY
-              fromCurrency = 'USD';
-              toCurrency = pair.substring(3);
-            } else {
-              // Other pairs: EURUSD -> EUR, USD
-              fromCurrency = pair.substring(0, 3);
-              toCurrency = pair.substring(3);
+              // Find currency in dashboard data using converted symbol
+              final currency = forexProvider.dashboardData!.currencies
+                  .where((c) => c.pair == apiSymbol)
+                  .firstOrNull;
+              if (currency != null) {
+                // Extract currencies from pair (e.g., EURUSD -> EUR, USD)
+                final pair = currency.pair;
+                String fromCurrency, toCurrency;
+                if (pair.startsWith('USD')) {
+                  // USD pairs: USDJPY -> USD, JPY
+                  fromCurrency = 'USD';
+                  toCurrency = pair.substring(3);
+                } else {
+                  // Other pairs: EURUSD -> EUR, USD
+                  fromCurrency = pair.substring(0, 3);
+                  toCurrency = pair.substring(3);
+                }
+
+                currentRate = ForexRate(
+                  fromCurrency: fromCurrency,
+                  toCurrency: toCurrency,
+                  symbol: _selectedSymbol, // Use original format for display
+                  rate: currency.currentValue,
+                  timestamp: DateTime.now(),
+                  change: currency.tomorrowChange,
+                  changePercent: currency.tomorrowChangePercent,
+                );
+
+                // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
+                final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
+                currentPrice = currentRate.rate;
+                askPrice = currentRate.rate; // Use current rate as ask price
+                bidPrice =
+                    askPrice -
+                    (spreadPercentage *
+                        askPrice); // Calculate bid using the formula
+                spread = askPrice - bidPrice; // Calculate actual spread
+                print(
+                  '🔄 [TRADING_FORM] Dashboard price: $currentPrice, Ask: $askPrice, Bid: $bidPrice',
+                );
+              }
+            }
+            // Fallback to regular forex rates
+            if (currentPrice == 0.0 &&
+                forexProvider.forexRates.containsKey(_selectedSymbol)) {
+              currentRate = forexProvider.forexRates[_selectedSymbol];
+              if (currentRate != null) {
+                final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
+                currentPrice = currentRate.rate;
+                askPrice = currentRate.rate;
+                bidPrice = askPrice - (spreadPercentage * askPrice);
+                spread = askPrice - bidPrice;
+              }
             }
 
-            currentRate = ForexRate(
-              fromCurrency: fromCurrency,
-              toCurrency: toCurrency,
-              symbol: _selectedSymbol, // Use original format for display
-              rate: currency.currentValue,
-              timestamp: DateTime.now(),
-              change: currency.tomorrowChange,
-              changePercent: currency.tomorrowChangePercent,
-            );
+            // Update the current price for the AI recommender
 
-            // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
-            final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-            currentPrice = currentRate.rate;
-            askPrice = currentRate.rate; // Use current rate as ask price
-            bidPrice =
-                askPrice -
-                (spreadPercentage *
-                    askPrice); // Calculate bid using the formula
-            spread = askPrice - bidPrice; // Calculate actual spread
-          } else {}
-        } else {}
-
-        if (currentRate == null &&
-            forexProvider.forexRates.containsKey(_selectedSymbol)) {
-          // Fallback to regular forex rates
-          currentRate = forexProvider.forexRates[_selectedSymbol];
-        }
-
-        if (currentRate == null &&
-            paperProvider.isSimulationRunning &&
-            paperProvider.currentPrices.containsKey(_selectedSymbol)) {
-          // Last resort: use simulation data
-          final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-          currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
-          askPrice = currentPrice;
-          bidPrice = askPrice - (spreadPercentage * askPrice);
-          spread = askPrice - bidPrice;
-        }
-
-        if (currentRate != null) {
-          // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
-          final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-          currentPrice = currentRate.rate;
-          askPrice = currentRate.rate; // Use current rate as ask price
-          bidPrice =
-              askPrice -
-              (spreadPercentage * askPrice); // Calculate bid using the formula
-          spread = askPrice - bidPrice; // Calculate actual spread
-        } else {}
-
-        // Update the current price for the AI recommender
-
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
-                spreadRadius: 2,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.trending_up, color: Colors.blue[600]),
-                    const SizedBox(width: 8),
-                    Text(
-                      'openNewPosition'.tr,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Enhanced price display
-                if (currentPrice > 0) ...[
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Theme.of(
-                            context,
-                          ).colorScheme.primary.withOpacity(0.1),
-                          Theme.of(
-                            context,
-                          ).colorScheme.primary.withOpacity(0.05),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _selectedSymbol,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.green[100],
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  'live'.tr,
-                                  style: TextStyle(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildPriceCard(
-                                'bid'.tr,
-                                bidPrice,
-                                Colors.red[600]!,
-                              ),
-                              _buildPriceCard(
-                                'ask'.tr,
-                                askPrice,
-                                Colors.green[600]!,
-                              ),
-                              _buildPriceCard(
-                                'spread'.tr,
-                                spread * 10000,
-                                Colors.orange[600]!,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.shadow.withOpacity(0.1),
+                    spreadRadius: 2,
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(height: 24),
                 ],
-
-                // Trading form - Responsive layout
-                Column(
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Trading pair and position type in separate rows for better responsiveness
-                    _buildEnhancedDropdown(
-                      'tradingPair'.tr,
-                      _selectedSymbol,
-                      forexProvider.availablePairs
-                          .map((pair) => pair['symbol']!)
-                          .toList(),
-                      (value) {
-                        setState(() {
-                          _selectedSymbol = value!;
-                        });
-                      },
+                    Row(
+                      children: [
+                        Icon(Icons.trending_up, color: Colors.blue[600]),
+                        const SizedBox(width: 8),
+                        Text(
+                          'openNewPosition'.tr,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
-                    // Position type selector
-                    _buildPositionTypeSelector(),
-                    const SizedBox(height: 20),
+                    // Enhanced price display
+                    if (currentPrice > 0) ...[
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1),
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.05),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _selectedSymbol,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green[100],
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      'live'.tr,
+                                      style: TextStyle(
+                                        color: Colors.green,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildPriceCard(
+                                    'bid'.tr,
+                                    bidPrice,
+                                    Colors.red[600]!,
+                                  ),
+                                  _buildPriceCard(
+                                    'ask'.tr,
+                                    askPrice,
+                                    Colors.green[600]!,
+                                  ),
+                                  _buildPriceCard(
+                                    'spread'.tr,
+                                    spread * 10000,
+                                    Colors.orange[600]!,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
 
-                    // AI Recommender Widget
-                    _buildAIRecommenderSection(),
-                    const SizedBox(height: 20),
+                    // Trading form - Responsive layout
+                    Column(
+                      children: [
+                        // Trading pair and position type in separate rows for better responsiveness
+                        _buildEnhancedDropdown(
+                          'tradingPair'.tr,
+                          _selectedSymbol,
+                          forexProvider.availablePairs
+                              .map((pair) => pair['symbol']!)
+                              .toList(),
+                          (value) {
+                            setState(() {
+                              _selectedSymbol = value!;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
 
-                    // Volume input
-                    _buildVolumeInput(),
-                    const SizedBox(height: 20),
+                        // Position type selector
+                        _buildPositionTypeSelector(),
+                        const SizedBox(height: 20),
 
-                    // Risk management section
-                    _buildRiskManagementSection(),
+                        // AI Recommender Widget
+                        _buildAIRecommenderSection(),
+                        const SizedBox(height: 20),
+
+                        // Volume input
+                        _buildVolumeInput(),
+                        const SizedBox(height: 20),
+
+                        // Risk management section
+                        _buildRiskManagementSection(),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Action buttons
+                    _buildActionButtons(paperProvider, currentPrice),
                   ],
                 ),
-                const SizedBox(height: 24),
-
-                // Action buttons
-                _buildActionButtons(paperProvider, currentPrice),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -923,6 +1094,19 @@ class _ComprehensivePaperTradingPageState
     return GetBuilder<PaperTradingProvider>(
       builder: (paperProvider) {
         final trades = paperProvider.wallet.tradeHistory.reversed.toList();
+
+        // Calculate trade statistics
+        final totalTrades = trades.length;
+        final profitableTrades = trades.where((t) => t.realizedPnL > 0).length;
+        final totalPnL = trades.fold(0.0, (sum, t) => sum + t.realizedPnL);
+        final totalCommission = trades.fold(
+          0.0,
+          (sum, t) => sum + t.commission,
+        );
+        final winRate = totalTrades > 0
+            ? (profitableTrades / totalTrades * 100)
+            : 0.0;
+
         return Column(
           children: [
             Container(
@@ -946,17 +1130,70 @@ class _ComprehensivePaperTradingPageState
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.history, color: Colors.blue[600]),
-                        const SizedBox(width: 8),
-                        Text(
-                          'tradeHistory'.tr,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          children: [
+                            Icon(Icons.history, color: Colors.blue[600]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'tradeHistory'.tr,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
+                        if (totalTrades > 0) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildStatItem(
+                                    'Total Trades',
+                                    totalTrades.toString(),
+                                    Icons.analytics,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildStatItem(
+                                    'Win Rate',
+                                    '${winRate.toStringAsFixed(1)}%',
+                                    Icons.trending_up,
+                                    valueColor: winRate >= 50
+                                        ? Colors.green
+                                        : Colors.red,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildStatItem(
+                                    'Total P&L',
+                                    '\$${totalPnL.toStringAsFixed(2)}',
+                                    Icons.account_balance_wallet,
+                                    valueColor: totalPnL >= 0
+                                        ? Colors.green
+                                        : Colors.red,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildStatItem(
+                                    'Commission',
+                                    '\$${totalCommission.toStringAsFixed(2)}',
+                                    Icons.receipt,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -997,33 +1234,120 @@ class _ComprehensivePaperTradingPageState
                                 ? Colors.green
                                 : Colors.red,
                           ),
-                          title: Text(
-                            '${t.symbol}  ${t.volume.toStringAsFixed(2)} lots',
+                          title: Row(
+                            children: [
+                              Text(
+                                t.symbol,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: t.type == PositionType.buy
+                                      ? Colors.green.withOpacity(0.1)
+                                      : Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  t.type == PositionType.buy ? 'BUY' : 'SELL',
+                                  style: TextStyle(
+                                    color: t.type == PositionType.buy
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '${t.volume.toStringAsFixed(2)} lots',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
                           ),
-                          subtitle: Text(
-                            'Open ${t.openPrice.toStringAsFixed(5)}  →  Close ${t.closePrice.toStringAsFixed(5)}\n${t.openTime.toLocal()} → ${t.closeTime.toLocal()}',
-                            style: const TextStyle(fontSize: 12),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Open: ${t.openPrice.toStringAsFixed(5)}',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward, size: 12),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Close: ${t.closePrice.toStringAsFixed(5)}',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${t.openTime.toLocal().toString().substring(0, 16)} → ${t.closeTime.toLocal().toString().substring(0, 16)}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
                           ),
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text(
-                                (isProfit ? '+' : '') +
-                                    t.realizedPnL.toStringAsFixed(2),
-                                style: TextStyle(
-                                  color: isProfit ? Colors.green : Colors.red,
-                                  fontWeight: FontWeight.bold,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isProfit
+                                      ? Colors.green.withOpacity(0.1)
+                                      : Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  (isProfit ? '+' : '') +
+                                      '\$${t.realizedPnL.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    color: isProfit ? Colors.green : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
-                              if (t.commission != 0)
+                              const SizedBox(height: 4),
+                              if (t.commission > 0)
                                 Text(
-                                  'Fee ${t.commission.toStringAsFixed(2)}',
+                                  'Fee: \$${t.commission.toStringAsFixed(2)}',
                                   style: const TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     color: Colors.grey,
                                   ),
                                 ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${((t.closePrice - t.openPrice) / t.openPrice * 100).toStringAsFixed(2)}%',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isProfit ? Colors.green : Colors.red,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ],
                           ),
                         );
@@ -1704,44 +2028,14 @@ class _ComprehensivePaperTradingPageState
                   onPressed: () {
                     _openPosition(paperProvider, currentPrice);
                   },
-                  icon: const Icon(
-                    Icons.trending_up,
-                    color: Colors.white,
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.check, color: Colors.white, size: 18),
                   label: Text(
-                    '${'buy'.tr} $_selectedSymbol',
+                    'submit'.tr,
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[600],
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    _openPosition(paperProvider, currentPrice);
-                  },
-                  icon: const Icon(
-                    Icons.trending_down,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                  label: Text(
-                    '${'sell'.tr} $_selectedSymbol',
-                    style: const TextStyle(fontSize: 14),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[600],
+                    backgroundColor: Colors.blue[600],
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

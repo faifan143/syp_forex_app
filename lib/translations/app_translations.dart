@@ -6,13 +6,13 @@ class AppTranslations extends Translations {
     'en': {
       // App Title
       'appTitle': 'SYP Forex App',
-      
+
       // Navigation
       'home': 'Home',
       'syp': 'SYP',
       'paperTrading': 'Paper Trading',
       'settings': 'Settings',
-      
+
       // Common
       'loading': 'Loading...',
       'error': 'Error',
@@ -36,6 +36,7 @@ class AppTranslations extends Translations {
       'resume': 'Resume',
       'restart': 'Restart',
       'apply': 'Apply',
+      'submit': 'Submit',
       'clear': 'Clear',
       'search': 'Search',
       'filter': 'Filter',
@@ -46,7 +47,7 @@ class AppTranslations extends Translations {
       'thisWeek': 'This Week',
       'thisMonth': 'This Month',
       'thisYear': 'This Year',
-      
+
       // Home Page
       'forexToday': 'Forex Today',
       'forexRates': 'Forex Rates',
@@ -75,78 +76,89 @@ class AppTranslations extends Translations {
       'ask': 'Ask',
       'bid': 'Bid',
       'spread': 'Spread',
-      
+
       // Onboarding
       'onboardingWelcomeTitle': 'Welcome to SYP Forex App',
-      'onboardingWelcomeDescription': 'Your comprehensive forex trading companion with real-time rates, predictions, and paper trading simulation.',
+      'onboardingWelcomeDescription':
+          'Your comprehensive forex trading companion with real-time rates, predictions, and paper trading simulation.',
       'onboardingWelcomeFeature1': 'Real-time forex rates and predictions',
       'onboardingWelcomeFeature2': 'Syrian Pound exchange tracking',
       'onboardingWelcomeFeature3': 'Paper trading simulation',
       'onboardingWelcomeFeature4': 'Professional charting tools',
-      
+
       'onboardingHomeTitle': 'Home Dashboard',
-      'onboardingHomeDescription': 'Monitor live forex rates with 7-day predictions and market insights.',
+      'onboardingHomeDescription':
+          'Monitor live forex rates with 7-day predictions and market insights.',
       'onboardingHomeFeature1': 'Live currency exchange rates',
       'onboardingHomeFeature2': '7-day price predictions',
       'onboardingHomeFeature3': 'Market trend analysis',
       'onboardingHomeFeature4': 'Real-time data updates',
-      
+
       'onboardingSypTitle': 'Syrian Pound Tracker',
-      'onboardingSypDescription': 'Track Syrian Pound exchange rates with detailed forecasts and market analysis.',
+      'onboardingSypDescription':
+          'Track Syrian Pound exchange rates with detailed forecasts and market analysis.',
       'onboardingSypFeature1': 'Current SYP exchange rates',
       'onboardingSypFeature2': 'Daily and weekly forecasts',
       'onboardingSypFeature3': 'Market volatility indicators',
       'onboardingSypFeature4': 'Historical rate trends',
-      
+
       'onboardingPaperTradingTitle': 'Paper Trading',
-      'onboardingPaperTradingDescription': 'Practice trading with virtual money in a risk-free environment.',
+      'onboardingPaperTradingDescription':
+          'Practice trading with virtual money in a risk-free environment.',
       'onboardingPaperTradingFeature1': 'Virtual \$100,000 starting balance',
       'onboardingPaperTradingFeature2': 'Real-time market simulation',
       'onboardingPaperTradingFeature3': 'Risk management tools',
       'onboardingPaperTradingFeature4': 'Trade history tracking',
-      
+
       'onboardingTradingTermsTitle': 'Trading Terms',
-      'onboardingTradingTermsDescription': 'Learn essential forex trading terminology and concepts.',
+      'onboardingTradingTermsDescription':
+          'Learn essential forex trading terminology and concepts.',
       'onboardingTradingTermsFeature1': 'Bid/Ask prices explained',
       'onboardingTradingTermsFeature2': 'Spread and pip concepts',
       'onboardingTradingTermsFeature3': 'Leverage and margin',
       'onboardingTradingTermsFeature4': 'Stop Loss & Take Profit',
-      
+
       'onboardingPredictionsTitle': 'AI Predictions',
-      'onboardingPredictionsDescription': 'Advanced machine learning predictions for currency movements.',
+      'onboardingPredictionsDescription':
+          'Advanced machine learning predictions for currency movements.',
       'onboardingPredictionsFeature1': '7-day price forecasts',
       'onboardingPredictionsFeature2': 'Confidence indicators',
       'onboardingPredictionsFeature3': 'Trend analysis',
       'onboardingPredictionsFeature4': 'Risk assessment',
-      
+
       'onboardingChartsTitle': 'Professional Charts',
-      'onboardingChartsDescription': 'Interactive candlestick charts with technical analysis tools.',
-      'onboardingChartsFeature1': 'Multiple timeframes (M1, M5, M15, H1, H4, D1)',
+      'onboardingChartsDescription':
+          'Interactive candlestick charts with technical analysis tools.',
+      'onboardingChartsFeature1':
+          'Multiple timeframes (M1, M5, M15, H1, H4, D1)',
       'onboardingChartsFeature2': 'Zoom and pan functionality',
       'onboardingChartsFeature3': 'Moving averages overlay',
       'onboardingChartsFeature4': 'Crosshair and price tracking',
-      
+
       'onboardingRiskManagementTitle': 'Risk Management',
-      'onboardingRiskManagementDescription': 'Essential tools to protect your capital and manage trading risks.',
+      'onboardingRiskManagementDescription':
+          'Essential tools to protect your capital and manage trading risks.',
       'onboardingRiskManagementFeature1': 'Position sizing calculator',
       'onboardingRiskManagementFeature2': 'Stop Loss automation',
       'onboardingRiskManagementFeature3': 'Take Profit targets',
       'onboardingRiskManagementFeature4': 'Margin level monitoring',
-      
+
       'onboardingSettingsTitle': 'Settings & Customization',
-      'onboardingSettingsDescription': 'Customize your trading experience with themes and preferences.',
+      'onboardingSettingsDescription':
+          'Customize your trading experience with themes and preferences.',
       'onboardingSettingsFeature1': 'Light/Dark theme modes',
       'onboardingSettingsFeature2': 'Language selection (EN/AR)',
       'onboardingSettingsFeature3': 'Data refresh intervals',
       'onboardingSettingsFeature4': 'Notification preferences',
-      
+
       'onboardingCompleteTitle': 'Ready to Trade!',
-      'onboardingCompleteDescription': 'You\'re all set to start your forex trading journey. Good luck!',
+      'onboardingCompleteDescription':
+          'You\'re all set to start your forex trading journey. Good luck!',
       'onboardingCompleteFeature1': 'Start with paper trading',
       'onboardingCompleteFeature2': 'Monitor real-time rates',
       'onboardingCompleteFeature3': 'Use risk management tools',
       'onboardingCompleteFeature4': 'Track your progress',
-      
+
       // Onboarding Actions
       'onboardingNext': 'Next',
       'onboardingPrevious': 'Previous',
@@ -154,54 +166,75 @@ class AppTranslations extends Translations {
       'onboardingGetStarted': 'Get Started',
       'onboardingFinish': 'Finish',
       'onboardingContinue': 'Continue',
-      
+
       // Trading Terms
       'tradingTermBid': 'Bid Price',
-      'tradingTermBidDefinition': 'The highest price a buyer is willing to pay for a currency pair.',
-      'tradingTermBidExample': 'If EUR/USD bid is 1.0850, you can sell EUR at this price.',
-      
+      'tradingTermBidDefinition':
+          'The highest price a buyer is willing to pay for a currency pair.',
+      'tradingTermBidExample':
+          'If EUR/USD bid is 1.0850, you can sell EUR at this price.',
+
       'tradingTermAsk': 'Ask Price',
-      'tradingTermAskDefinition': 'The lowest price a seller is willing to accept for a currency pair.',
-      'tradingTermAskExample': 'If EUR/USD ask is 1.0852, you can buy EUR at this price.',
-      
+      'tradingTermAskDefinition':
+          'The lowest price a seller is willing to accept for a currency pair.',
+      'tradingTermAskExample':
+          'If EUR/USD ask is 1.0852, you can buy EUR at this price.',
+
       'tradingTermSpread': 'Spread',
-      'tradingTermSpreadDefinition': 'The difference between bid and ask prices.',
-      'tradingTermSpreadExample': 'If bid is 1.0850 and ask is 1.0852, spread is 2 pips.',
-      
+      'tradingTermSpreadDefinition':
+          'The difference between bid and ask prices.',
+      'tradingTermSpreadExample':
+          'If bid is 1.0850 and ask is 1.0852, spread is 2 pips.',
+
       'tradingTermPip': 'Pip',
-      'tradingTermPipDefinition': 'Percentage in Point - the smallest price change in forex.',
-      'tradingTermPipExample': 'For EUR/USD, 1 pip = 0.0001 (4th decimal place).',
-      
+      'tradingTermPipDefinition':
+          'Percentage in Point - the smallest price change in forex.',
+      'tradingTermPipExample':
+          'For EUR/USD, 1 pip = 0.0001 (4th decimal place).',
+
       'tradingTermLeverage': 'Leverage',
-      'tradingTermLeverageDefinition': 'The ratio of borrowed funds to your own capital.',
-      'tradingTermLeverageExample': '1:100 leverage means you can trade \$100,000 with \$1,000.',
-      
+      'tradingTermLeverageDefinition':
+          'The ratio of borrowed funds to your own capital.',
+      'tradingTermLeverageExample':
+          '1:100 leverage means you can trade \$100,000 with \$1,000.',
+
       'tradingTermMargin': 'Margin',
-      'tradingTermMarginDefinition': 'The amount of money required to open and maintain a position.',
-      'tradingTermMarginExample': 'To trade \$100,000 with 1:100 leverage, you need \$1,000 margin.',
-      
+      'tradingTermMarginDefinition':
+          'The amount of money required to open and maintain a position.',
+      'tradingTermMarginExample':
+          'To trade \$100,000 with 1:100 leverage, you need \$1,000 margin.',
+
       'tradingTermStopLoss': 'Stop Loss',
-      'tradingTermStopLossDefinition': 'An order to close a position at a predetermined loss level.',
-      'tradingTermStopLossExample': 'Set stop loss at 1.0800 to limit loss if EUR/USD falls.',
-      
+      'tradingTermStopLossDefinition':
+          'An order to close a position at a predetermined loss level.',
+      'tradingTermStopLossExample':
+          'Set stop loss at 1.0800 to limit loss if EUR/USD falls.',
+
       'tradingTermTakeProfit': 'Take Profit',
-      'tradingTermTakeProfitDefinition': 'An order to close a position at a predetermined profit level.',
-      'tradingTermTakeProfitExample': 'Set take profit at 1.0900 to secure profit if EUR/USD rises.',
-      
+      'tradingTermTakeProfitDefinition':
+          'An order to close a position at a predetermined profit level.',
+      'tradingTermTakeProfitExample':
+          'Set take profit at 1.0900 to secure profit if EUR/USD rises.',
+
       'tradingTermLong': 'Long Position',
-      'tradingTermLongDefinition': 'Buying a currency pair expecting its value to increase.',
-      'tradingTermLongExample': 'Buy EUR/USD at 1.0850, expecting it to rise to 1.0900.',
-      
+      'tradingTermLongDefinition':
+          'Buying a currency pair expecting its value to increase.',
+      'tradingTermLongExample':
+          'Buy EUR/USD at 1.0850, expecting it to rise to 1.0900.',
+
       'tradingTermShort': 'Short Position',
-      'tradingTermShortDefinition': 'Selling a currency pair expecting its value to decrease.',
-      'tradingTermShortExample': 'Sell EUR/USD at 1.0850, expecting it to fall to 1.0800.',
-      
+      'tradingTermShortDefinition':
+          'Selling a currency pair expecting its value to decrease.',
+      'tradingTermShortExample':
+          'Sell EUR/USD at 1.0850, expecting it to fall to 1.0800.',
+
       // Settings onboarding
       'onboarding': 'Onboarding',
       'resetOnboarding': 'Reset Onboarding',
       'resetOnboardingDescription': 'Show the introduction tour again',
-      'resetOnboardingConfirm': 'Are you sure you want to reset the onboarding? You will see the introduction tour again.',
-      
+      'resetOnboardingConfirm':
+          'Are you sure you want to reset the onboarding? You will see the introduction tour again.',
+
       // Onboarding Controls
       'themeToggle': 'Theme',
       'languageToggle': 'Language',
@@ -211,7 +244,7 @@ class AppTranslations extends Translations {
       'arabic': 'العربية',
       'toggleTheme': 'Toggle Theme',
       'toggleLanguage': 'Toggle Language',
-      
+
       // API Configuration
       'apiConfiguration': 'API Configuration',
       'serverConfiguration': 'Server Configuration',
@@ -220,16 +253,24 @@ class AppTranslations extends Translations {
       'updateAllApis': 'Update All APIs',
       'testAll': 'Test All',
       'resetToDefaults': 'Reset to Defaults',
-      
+
       // Additional onboarding keys
-      'onboardingWelcomeMessage': 'Let\'s explore the world of forex trading together!',
-      'onboardingHomeTip': 'Check the dashboard regularly for market updates and predictions.',
-      'onboardingSypTip': 'Monitor Syrian Pound rates and forecasts for informed decisions.',
-      'onboardingPaperTradingTip': 'Practice with virtual money before risking real capital.',
-      'onboardingPredictionsTip': 'Use AI predictions as guidance, not absolute truth.',
-      'onboardingChartsTip': 'Use pinch to zoom and drag to pan through chart data.',
-      'onboardingRiskManagementTip': 'Never risk more than you can afford to lose.',
-      'onboardingSettingsTip': 'Customize the app to match your trading preferences.',
+      'onboardingWelcomeMessage':
+          'Let\'s explore the world of forex trading together!',
+      'onboardingHomeTip':
+          'Check the dashboard regularly for market updates and predictions.',
+      'onboardingSypTip':
+          'Monitor Syrian Pound rates and forecasts for informed decisions.',
+      'onboardingPaperTradingTip':
+          'Practice with virtual money before risking real capital.',
+      'onboardingPredictionsTip':
+          'Use AI predictions as guidance, not absolute truth.',
+      'onboardingChartsTip':
+          'Use pinch to zoom and drag to pan through chart data.',
+      'onboardingRiskManagementTip':
+          'Never risk more than you can afford to lose.',
+      'onboardingSettingsTip':
+          'Customize the app to match your trading preferences.',
       'onboardingCompleteSummary': 'You now have access to:',
       'onboardingCompleteNextSteps': 'Ready to start? Here\'s what you can do:',
       'onboardingCompleteStep1': 'Explore the Home dashboard for live rates',
@@ -237,7 +278,7 @@ class AppTranslations extends Translations {
       'onboardingCompleteStep3': 'Start paper trading with virtual money',
       'onboardingCompleteStep4': 'Customize settings and preferences',
       'onboardingCompleteCelebration': 'Welcome to your trading journey!',
-      
+
       // SYP Page
       'syrianPound': 'Syrian Pound (SYP)',
       'currentRates': 'Current Rates',
@@ -262,7 +303,7 @@ class AppTranslations extends Translations {
       'high': 'High',
       'medium': 'Medium',
       'low': 'Low',
-      
+
       // Paper Trading
       'accountSummary': 'Account Summary',
       'balance': 'Balance',
@@ -301,7 +342,7 @@ class AppTranslations extends Translations {
       'positionSize': 'Position Size',
       'marginCall': 'Margin Call',
       'insufficientMargin': 'Insufficient Margin',
-      
+
       // Chart
       'chart': 'Chart',
       'timeframe': 'Timeframe',
@@ -321,14 +362,14 @@ class AppTranslations extends Translations {
       'hide': 'Hide',
       'expand': 'Expand',
       'collapse': 'Collapse',
-      
+
       // Trading Form
       'tradingForm': 'Trading Form',
       'riskManagement': 'Risk Management',
       'realisticMode': 'Realistic Mode',
       'simulatedMode': 'Simulated Mode',
       'paperTradingData': 'Paper Trading Data',
-      
+
       // Settings
       'language': 'Language',
       'selectLanguage': 'Select Language',
@@ -363,7 +404,7 @@ class AppTranslations extends Translations {
       'shareApp': 'Share App',
       'moreApps': 'More Apps',
       'exit': 'Exit',
-      
+
       // Timeframes
       'm1': '1 Minute',
       'm5': '5 Minutes',
@@ -371,7 +412,7 @@ class AppTranslations extends Translations {
       'h1': '1 Hour',
       'h4': '4 Hours',
       'd1': 'Daily',
-      
+
       // Currency Pairs
       'eurUsd': 'EUR/USD',
       'gbpUsd': 'GBP/USD',
@@ -383,7 +424,7 @@ class AppTranslations extends Translations {
       'usdTry': 'USD/TRY',
       'cnhUsd': 'CNH/USD',
       'usdSek': 'USD/SEK',
-      
+
       // Additional Paper Trading
       'openNewPosition': 'Open New Position',
       'live': 'LIVE',
@@ -407,7 +448,7 @@ class AppTranslations extends Translations {
       'current': 'Current',
       'sl': 'SL',
       'tp': 'TP',
-      
+
       // Additional SYP Page
       'blackMarketRate': 'Black Market Rate',
       'sypPerUsd': 'SYP per USD',
@@ -420,7 +461,7 @@ class AppTranslations extends Translations {
       'negative': 'Negative',
       'tomorrowsForecast': 'Tomorrow\'s Forecast',
       'range': 'range',
-      
+
       // Additional Home Page
       'dashboardUnavailable': 'Dashboard Unavailable',
       'unknown': 'Unknown',
@@ -431,12 +472,12 @@ class AppTranslations extends Translations {
       'friday': 'Friday',
       'saturday': 'Saturday',
       'sunday': 'Sunday',
-      
+
       // City Names
       'aleppo': 'Aleppo',
       'damascus': 'Damascus',
       'idlib': 'Idlib',
-      
+
       // Additional missing translations
       'tradingData': 'Trading Data',
       'open': 'Open',
@@ -458,7 +499,8 @@ class AppTranslations extends Translations {
       'buyPositionOpened': 'Buy position opened for',
       'sellPositionOpened': 'Sell position opened for',
       'openPositions': 'Open Positions',
-      'noOpenPositionsMessage': 'No open positions, open a position using the form above',
+      'noOpenPositionsMessage':
+          'No open positions, open a position using the form above',
       'tradingHistory': 'Trading History',
       'noTradingHistory': 'No trading history',
       'spread': 'Spread',
@@ -466,7 +508,7 @@ class AppTranslations extends Translations {
       'bullish': 'Bullish',
       'bearish': 'Bearish',
       'volumeLots': 'Volume (Lots)',
-      
+
       // AI Recommender
       'aiRecommender': 'Hybrid AI Recommender',
       'aiAnalysis': 'AI Analysis',
@@ -496,26 +538,30 @@ class AppTranslations extends Translations {
       'liveAnalysis': 'Live Analysis',
       'refreshAnalysis': 'Refresh Analysis',
       'waitingForPriceData': 'Waiting for price data...',
-      
+
       // AI Recommender Analysis
       'technicalAnalysisShows': 'Technical analysis shows {trend} momentum',
-      'technicalAnalysisIndicates': 'Technical analysis indicates {trend} pressure',
-      'fundamentalFactorsSupportUpward': 'Fundamental factors support upward movement',
-      'fundamentalFactorsSuggestDownward': 'Fundamental factors suggest downward movement',
-      'mixedSignalsFromAnalysis': 'Mixed signals from technical and fundamental analysis',
+      'technicalAnalysisIndicates':
+          'Technical analysis indicates {trend} pressure',
+      'fundamentalFactorsSupportUpward':
+          'Fundamental factors support upward movement',
+      'fundamentalFactorsSuggestDownward':
+          'Fundamental factors suggest downward movement',
+      'mixedSignalsFromAnalysis':
+          'Mixed signals from technical and fundamental analysis',
       'marketConditionsUncertain': 'Market conditions are uncertain',
       'confidenceLevel': 'Confidence level',
-      
+
       // Technical Trends
       'bullish': 'bullish',
       'bearish': 'bearish',
       'neutral': 'neutral',
-      
+
       // Market Sentiment
       'bullishSentiment': 'Bullish',
       'bearishSentiment': 'Bearish',
       'neutralSentiment': 'Neutral',
-      
+
       // Technical Indicators
       'rsiOverbought': 'RSI Overbought',
       'rsiOversold': 'RSI Oversold',
@@ -524,24 +570,24 @@ class AppTranslations extends Translations {
       'bollingerOverbought': 'Bollinger Overbought',
       'bollingerOversold': 'Bollinger Oversold',
       'insufficientData': 'Insufficient data',
-      
+
       // Fundamental Factors
       'strongMomentum': 'Strong {trend} momentum',
       'weeklyTrend': 'Weekly {trend} trend',
       'positive7DayForecast': 'Positive 7-day forecast',
       'negative7DayForecast': 'Negative 7-day forecast',
-      
+
       // Form Hints
       'enterVolumeHint': 'Enter volume (e.g., 0.1)',
       'usdExample': 'USD (e.g., 50)',
       'usdExample100': 'USD (e.g., 100)',
-      
+
       // Time Horizons
       'timeHorizon1To2Hours': '1-2 hours',
       'timeHorizon2To4Hours': '2-4 hours',
       'timeHorizon4To8Hours': '4-8 hours',
       'timeHorizon8To24Hours': '8-24 hours',
-      
+
       // AI Recommender Real Data Analysis
       'tomorrowTrendUp': 'Tomorrow trend is upward',
       'tomorrowTrendDown': 'Tomorrow trend is downward',
@@ -555,13 +601,13 @@ class AppTranslations extends Translations {
     'ar': {
       // App Title
       'appTitle': 'تطبيق العملات الأجنبية السورية',
-      
+
       // Navigation
       'home': 'الرئيسية',
       'syp': 'الليرة السورية',
       'paperTrading': 'التداول الورقي',
       'settings': 'الإعدادات',
-      
+
       // Common
       'loading': 'جاري التحميل...',
       'error': 'خطأ',
@@ -585,6 +631,7 @@ class AppTranslations extends Translations {
       'resume': 'استئناف',
       'restart': 'إعادة تشغيل',
       'apply': 'تطبيق',
+      'submit': 'إرسال',
       'clear': 'مسح',
       'search': 'بحث',
       'filter': 'تصفية',
@@ -595,7 +642,7 @@ class AppTranslations extends Translations {
       'thisWeek': 'هذا الأسبوع',
       'thisMonth': 'هذا الشهر',
       'thisYear': 'هذا العام',
-      
+
       // Home Page
       'forexToday': 'العملات الأجنبية اليوم',
       'forexRates': 'أسعار العملات الأجنبية',
@@ -624,78 +671,89 @@ class AppTranslations extends Translations {
       'ask': 'سعر الطلب',
       'bid': 'سعر العرض',
       'spread': 'السبريد',
-      
+
       // Onboarding
       'onboardingWelcomeTitle': 'مرحباً بك في تطبيق سعر الصرف السوري',
-      'onboardingWelcomeDescription': 'رفيقك الشامل لتداول العملات مع أسعار فورية وتوقعات ومحاكاة التداول الورقي.',
+      'onboardingWelcomeDescription':
+          'رفيقك الشامل لتداول العملات مع أسعار فورية وتوقعات ومحاكاة التداول الورقي.',
       'onboardingWelcomeFeature1': 'أسعار العملات الفورية والتوقعات',
       'onboardingWelcomeFeature2': 'تتبع سعر الصرف السوري',
       'onboardingWelcomeFeature3': 'محاكاة التداول الورقي',
       'onboardingWelcomeFeature4': 'أدوات الرسوم البيانية المهنية',
-      
+
       'onboardingHomeTitle': 'لوحة التحكم الرئيسية',
-      'onboardingHomeDescription': 'راقب أسعار العملات المباشرة مع توقعات 7 أيام ورؤى السوق.',
+      'onboardingHomeDescription':
+          'راقب أسعار العملات المباشرة مع توقعات 7 أيام ورؤى السوق.',
       'onboardingHomeFeature1': 'أسعار صرف العملات المباشرة',
       'onboardingHomeFeature2': 'توقعات الأسعار لـ 7 أيام',
       'onboardingHomeFeature3': 'تحليل اتجاهات السوق',
       'onboardingHomeFeature4': 'تحديثات البيانات الفورية',
-      
+
       'onboardingSypTitle': 'متتبع الليرة السورية',
-      'onboardingSypDescription': 'تتبع أسعار صرف الليرة السورية مع توقعات مفصلة وتحليل السوق.',
+      'onboardingSypDescription':
+          'تتبع أسعار صرف الليرة السورية مع توقعات مفصلة وتحليل السوق.',
       'onboardingSypFeature1': 'أسعار صرف الليرة السورية الحالية',
       'onboardingSypFeature2': 'التوقعات اليومية والأسبوعية',
       'onboardingSypFeature3': 'مؤشرات تقلبات السوق',
       'onboardingSypFeature4': 'اتجاهات الأسعار التاريخية',
-      
+
       'onboardingPaperTradingTitle': 'التداول الورقي',
-      'onboardingPaperTradingDescription': 'تدرب على التداول بأموال افتراضية في بيئة خالية من المخاطر.',
+      'onboardingPaperTradingDescription':
+          'تدرب على التداول بأموال افتراضية في بيئة خالية من المخاطر.',
       'onboardingPaperTradingFeature1': 'رصيد افتراضي ابتدائي 100,000\$',
       'onboardingPaperTradingFeature2': 'محاكاة السوق الفورية',
       'onboardingPaperTradingFeature3': 'أدوات إدارة المخاطر',
       'onboardingPaperTradingFeature4': 'تتبع تاريخ التداول',
-      
+
       'onboardingTradingTermsTitle': 'مصطلحات التداول',
-      'onboardingTradingTermsDescription': 'تعلم المصطلحات والمفاهيم الأساسية لتداول العملات.',
+      'onboardingTradingTermsDescription':
+          'تعلم المصطلحات والمفاهيم الأساسية لتداول العملات.',
       'onboardingTradingTermsFeature1': 'شرح أسعار العرض والطلب',
       'onboardingTradingTermsFeature2': 'مفاهيم السبريد والنقطة',
       'onboardingTradingTermsFeature3': 'الرافعة المالية والهامش',
       'onboardingTradingTermsFeature4': 'وقف الخسارة وجني الأرباح',
-      
+
       'onboardingPredictionsTitle': 'التوقعات الذكية',
-      'onboardingPredictionsDescription': 'توقعات متقدمة بالذكاء الاصطناعي لحركات العملات.',
+      'onboardingPredictionsDescription':
+          'توقعات متقدمة بالذكاء الاصطناعي لحركات العملات.',
       'onboardingPredictionsFeature1': 'توقعات الأسعار لـ 7 أيام',
       'onboardingPredictionsFeature2': 'مؤشرات الثقة',
       'onboardingPredictionsFeature3': 'تحليل الاتجاهات',
       'onboardingPredictionsFeature4': 'تقييم المخاطر',
-      
+
       'onboardingChartsTitle': 'الرسوم البيانية المهنية',
-      'onboardingChartsDescription': 'رسوم بيانية تفاعلية للشموع اليابانية مع أدوات التحليل الفني.',
-      'onboardingChartsFeature1': 'إطارات زمنية متعددة (دقيقة، 5 دقائق، 15 دقيقة، ساعة، 4 ساعات، يوم)',
+      'onboardingChartsDescription':
+          'رسوم بيانية تفاعلية للشموع اليابانية مع أدوات التحليل الفني.',
+      'onboardingChartsFeature1':
+          'إطارات زمنية متعددة (دقيقة، 5 دقائق، 15 دقيقة، ساعة، 4 ساعات، يوم)',
       'onboardingChartsFeature2': 'وظائف التكبير والتحريك',
       'onboardingChartsFeature3': 'تراكب المتوسطات المتحركة',
       'onboardingChartsFeature4': 'المؤشر المتقاطع وتتبع الأسعار',
-      
+
       'onboardingRiskManagementTitle': 'إدارة المخاطر',
-      'onboardingRiskManagementDescription': 'أدوات أساسية لحماية رأس المال وإدارة مخاطر التداول.',
+      'onboardingRiskManagementDescription':
+          'أدوات أساسية لحماية رأس المال وإدارة مخاطر التداول.',
       'onboardingRiskManagementFeature1': 'حاسبة حجم المركز',
       'onboardingRiskManagementFeature2': 'أتمتة وقف الخسارة',
       'onboardingRiskManagementFeature3': 'أهداف جني الأرباح',
       'onboardingRiskManagementFeature4': 'مراقبة مستوى الهامش',
-      
+
       'onboardingSettingsTitle': 'الإعدادات والتخصيص',
-      'onboardingSettingsDescription': 'خصص تجربة التداول الخاصة بك مع المظاهر والتفضيلات.',
+      'onboardingSettingsDescription':
+          'خصص تجربة التداول الخاصة بك مع المظاهر والتفضيلات.',
       'onboardingSettingsFeature1': 'أوضاع المظهر الفاتح/الداكن',
       'onboardingSettingsFeature2': 'اختيار اللغة (عربي/إنجليزي)',
       'onboardingSettingsFeature3': 'فترات تحديث البيانات',
       'onboardingSettingsFeature4': 'تفضيلات الإشعارات',
-      
+
       'onboardingCompleteTitle': 'جاهز للتداول!',
-      'onboardingCompleteDescription': 'أنت جاهز لبدء رحلة التداول الخاصة بك. حظاً سعيداً!',
+      'onboardingCompleteDescription':
+          'أنت جاهز لبدء رحلة التداول الخاصة بك. حظاً سعيداً!',
       'onboardingCompleteFeature1': 'ابدأ بالتداول الورقي',
       'onboardingCompleteFeature2': 'راقب الأسعار الفورية',
       'onboardingCompleteFeature3': 'استخدم أدوات إدارة المخاطر',
       'onboardingCompleteFeature4': 'تتبع تقدمك',
-      
+
       // Onboarding Actions
       'onboardingNext': 'التالي',
       'onboardingPrevious': 'السابق',
@@ -703,16 +761,23 @@ class AppTranslations extends Translations {
       'onboardingGetStarted': 'ابدأ الآن',
       'onboardingFinish': 'إنهاء',
       'onboardingContinue': 'متابعة',
-      
+
       // Additional onboarding keys
       'onboardingWelcomeMessage': 'دعنا نستكشف عالم تداول العملات معاً!',
-      'onboardingHomeTip': 'تحقق من لوحة التحكم بانتظام للحصول على تحديثات السوق والتوقعات.',
-      'onboardingSypTip': 'راقب أسعار الليرة السورية والتوقعات لاتخاذ قرارات مدروسة.',
-      'onboardingPaperTradingTip': 'تدرب بأموال افتراضية قبل المخاطرة برأس المال الحقيقي.',
-      'onboardingPredictionsTip': 'استخدم التوقعات الذكية كدليل، وليس كحقيقة مطلقة.',
-      'onboardingChartsTip': 'استخدم القرص للتكبير والسحب للتنقل عبر بيانات الرسم البياني.',
-      'onboardingRiskManagementTip': 'لا تخاطر أبداً بأكثر مما يمكنك تحمل خسارته.',
-      'onboardingSettingsTip': 'خصص التطبيق ليتناسب مع تفضيلات التداول الخاصة بك.',
+      'onboardingHomeTip':
+          'تحقق من لوحة التحكم بانتظام للحصول على تحديثات السوق والتوقعات.',
+      'onboardingSypTip':
+          'راقب أسعار الليرة السورية والتوقعات لاتخاذ قرارات مدروسة.',
+      'onboardingPaperTradingTip':
+          'تدرب بأموال افتراضية قبل المخاطرة برأس المال الحقيقي.',
+      'onboardingPredictionsTip':
+          'استخدم التوقعات الذكية كدليل، وليس كحقيقة مطلقة.',
+      'onboardingChartsTip':
+          'استخدم القرص للتكبير والسحب للتنقل عبر بيانات الرسم البياني.',
+      'onboardingRiskManagementTip':
+          'لا تخاطر أبداً بأكثر مما يمكنك تحمل خسارته.',
+      'onboardingSettingsTip':
+          'خصص التطبيق ليتناسب مع تفضيلات التداول الخاصة بك.',
       'onboardingCompleteSummary': 'لديك الآن إمكانية الوصول إلى:',
       'onboardingCompleteNextSteps': 'جاهز للبدء؟ إليك ما يمكنك فعله:',
       'onboardingCompleteStep1': 'استكشف لوحة التحكم الرئيسية للأسعار المباشرة',
@@ -720,14 +785,15 @@ class AppTranslations extends Translations {
       'onboardingCompleteStep3': 'ابدأ التداول الورقي بأموال افتراضية',
       'onboardingCompleteStep4': 'خصص الإعدادات والتفضيلات',
       'onboardingCompleteCelebration': 'مرحباً بك في رحلة التداول الخاصة بك!',
-      
+
       // Settings onboarding
       'onboarding': 'التعريف بالتطبيق',
       'resetOnboarding': 'إعادة تعيين التعريف',
       'resetOnboardingDescription': 'إظهار جولة التعريف مرة أخرى',
-      'resetOnboardingConfirm': 'هل أنت متأكد من أنك تريد إعادة تعيين التعريف؟ ستظهر جولة التعريف مرة أخرى.',
+      'resetOnboardingConfirm':
+          'هل أنت متأكد من أنك تريد إعادة تعيين التعريف؟ ستظهر جولة التعريف مرة أخرى.',
       'reset': 'إعادة تعيين',
-      
+
       // Onboarding Controls
       'themeToggle': 'السمة',
       'languageToggle': 'اللغة',
@@ -737,7 +803,7 @@ class AppTranslations extends Translations {
       'arabic': 'العربية',
       'toggleTheme': 'تبديل السمة',
       'toggleLanguage': 'تبديل اللغة',
-      
+
       // API Configuration
       'apiConfiguration': 'إعدادات API',
       'serverConfiguration': 'إعدادات الخادم',
@@ -746,48 +812,63 @@ class AppTranslations extends Translations {
       'updateAllApis': 'تحديث جميع APIs',
       'testAll': 'اختبار الكل',
       'resetToDefaults': 'إعادة تعيين للافتراضي',
-      
+
       // Trading Terms
       'tradingTermBid': 'سعر العرض',
       'tradingTermBidDefinition': 'أعلى سعر يرغب المشتري في دفعه لزوج العملات.',
-      'tradingTermBidExample': 'إذا كان سعر عرض اليورو/الدولار 1.0850، يمكنك بيع اليورو بهذا السعر.',
-      
+      'tradingTermBidExample':
+          'إذا كان سعر عرض اليورو/الدولار 1.0850، يمكنك بيع اليورو بهذا السعر.',
+
       'tradingTermAsk': 'سعر الطلب',
       'tradingTermAskDefinition': 'أقل سعر يقبله البائع لزوج العملات.',
-      'tradingTermAskExample': 'إذا كان سعر طلب اليورو/الدولار 1.0852، يمكنك شراء اليورو بهذا السعر.',
-      
+      'tradingTermAskExample':
+          'إذا كان سعر طلب اليورو/الدولار 1.0852، يمكنك شراء اليورو بهذا السعر.',
+
       'tradingTermSpread': 'السبريد',
       'tradingTermSpreadDefinition': 'الفرق بين سعر العرض وسعر الطلب.',
-      'tradingTermSpreadExample': 'إذا كان العرض 1.0850 والطلب 1.0852، فالسبريد هو نقطتان.',
-      
+      'tradingTermSpreadExample':
+          'إذا كان العرض 1.0850 والطلب 1.0852، فالسبريد هو نقطتان.',
+
       'tradingTermPip': 'النقطة',
-      'tradingTermPipDefinition': 'النسبة في النقطة - أصغر تغيير في السعر في الفوركس.',
-      'tradingTermPipExample': 'لليورو/الدولار، النقطة الواحدة = 0.0001 (المنزلة العشرية الرابعة).',
-      
+      'tradingTermPipDefinition':
+          'النسبة في النقطة - أصغر تغيير في السعر في الفوركس.',
+      'tradingTermPipExample':
+          'لليورو/الدولار، النقطة الواحدة = 0.0001 (المنزلة العشرية الرابعة).',
+
       'tradingTermLeverage': 'الرافعة المالية',
-      'tradingTermLeverageDefinition': 'نسبة الأموال المقترضة إلى رأس المال الخاص.',
-      'tradingTermLeverageExample': 'رافعة 1:100 تعني أنه يمكنك التداول بـ 100,000\$ بـ 1,000\$.',
-      
+      'tradingTermLeverageDefinition':
+          'نسبة الأموال المقترضة إلى رأس المال الخاص.',
+      'tradingTermLeverageExample':
+          'رافعة 1:100 تعني أنه يمكنك التداول بـ 100,000\$ بـ 1,000\$.',
+
       'tradingTermMargin': 'الهامش',
-      'tradingTermMarginDefinition': 'مبلغ المال المطلوب لفتح والحفاظ على مركز.',
-      'tradingTermMarginExample': 'لتداول 100,000\$ برافعة 1:100، تحتاج إلى هامش 1,000\$.',
-      
+      'tradingTermMarginDefinition':
+          'مبلغ المال المطلوب لفتح والحفاظ على مركز.',
+      'tradingTermMarginExample':
+          'لتداول 100,000\$ برافعة 1:100، تحتاج إلى هامش 1,000\$.',
+
       'tradingTermStopLoss': 'وقف الخسارة',
-      'tradingTermStopLossDefinition': 'أمر لإغلاق مركز عند مستوى خسارة محدد مسبقاً.',
-      'tradingTermStopLossExample': 'ضع وقف الخسارة عند 1.0800 لتحديد الخسارة إذا انخفض اليورو/الدولار.',
-      
+      'tradingTermStopLossDefinition':
+          'أمر لإغلاق مركز عند مستوى خسارة محدد مسبقاً.',
+      'tradingTermStopLossExample':
+          'ضع وقف الخسارة عند 1.0800 لتحديد الخسارة إذا انخفض اليورو/الدولار.',
+
       'tradingTermTakeProfit': 'جني الأرباح',
-      'tradingTermTakeProfitDefinition': 'أمر لإغلاق مركز عند مستوى ربح محدد مسبقاً.',
-      'tradingTermTakeProfitExample': 'ضع جني الأرباح عند 1.0900 لتأمين الربح إذا ارتفع اليورو/الدولار.',
-      
+      'tradingTermTakeProfitDefinition':
+          'أمر لإغلاق مركز عند مستوى ربح محدد مسبقاً.',
+      'tradingTermTakeProfitExample':
+          'ضع جني الأرباح عند 1.0900 لتأمين الربح إذا ارتفع اليورو/الدولار.',
+
       'tradingTermLong': 'مركز شراء',
       'tradingTermLongDefinition': 'شراء زوج عملات مع توقع ارتفاع قيمته.',
-      'tradingTermLongExample': 'اشترِ اليورو/الدولار عند 1.0850، متوقعاً ارتفاعه إلى 1.0900.',
-      
+      'tradingTermLongExample':
+          'اشترِ اليورو/الدولار عند 1.0850، متوقعاً ارتفاعه إلى 1.0900.',
+
       'tradingTermShort': 'مركز بيع',
       'tradingTermShortDefinition': 'بيع زوج عملات مع توقع انخفاض قيمته.',
-      'tradingTermShortExample': 'بع اليورو/الدولار عند 1.0850، متوقعاً انخفاضه إلى 1.0800.',
-      
+      'tradingTermShortExample':
+          'بع اليورو/الدولار عند 1.0850، متوقعاً انخفاضه إلى 1.0800.',
+
       // SYP Page
       'syrianPound': 'الليرة السورية (SYP)',
       'currentRates': 'الأسعار الحالية',
@@ -812,7 +893,7 @@ class AppTranslations extends Translations {
       'high': 'عالي',
       'medium': 'متوسط',
       'low': 'منخفض',
-      
+
       // Paper Trading
       'accountSummary': 'ملخص الحساب',
       'balance': 'الرصيد',
@@ -851,7 +932,7 @@ class AppTranslations extends Translations {
       'positionSize': 'حجم المركز',
       'marginCall': 'نداء الهامش',
       'insufficientMargin': 'هامش غير كافي',
-      
+
       // Chart
       'chart': 'الرسم البياني',
       'timeframe': 'الإطار الزمني',
@@ -870,14 +951,14 @@ class AppTranslations extends Translations {
       'hide': 'إخفاء',
       'expand': 'توسيع',
       'collapse': 'طي',
-      
+
       // Trading Form
       'tradingForm': 'نموذج التداول',
       'riskManagement': 'إدارة المخاطر',
       'realisticMode': 'الوضع الواقعي',
       'simulatedMode': 'الوضع المحاكي',
       'paperTradingData': 'بيانات التداول الورقي',
-      
+
       // Settings
       'language': 'اللغة',
       'selectLanguage': 'اختر اللغة',
@@ -888,10 +969,12 @@ class AppTranslations extends Translations {
       'selectTheme': 'اختر المظهر',
       'dataSource': 'مصدر البيانات',
       'useDemoData': 'استخدام بيانات تجريبية',
-      'useSimulatedData': 'استخدام بيانات محاكية بدلاً من استدعاءات API الحقيقية',
+      'useSimulatedData':
+          'استخدام بيانات محاكية بدلاً من استدعاءات API الحقيقية',
       'autoRefresh': 'التحديث التلقائي',
       'autoRefreshData': 'تحديث البيانات تلقائياً',
-      'automaticallyRefreshData': 'تحديث بيانات العملات الأجنبية والليرة السورية تلقائياً',
+      'automaticallyRefreshData':
+          'تحديث بيانات العملات الأجنبية والليرة السورية تلقائياً',
       'refreshInterval': 'فترة التحديث',
       'seconds': 'ثانية',
       'every': 'كل',
@@ -912,7 +995,7 @@ class AppTranslations extends Translations {
       'shareApp': 'مشاركة التطبيق',
       'moreApps': 'تطبيقات أخرى',
       'exit': 'خروج',
-      
+
       // Timeframes
       'm1': 'دقيقة واحدة',
       'm5': '5 دقائق',
@@ -920,7 +1003,7 @@ class AppTranslations extends Translations {
       'h1': 'ساعة واحدة',
       'h4': '4 ساعات',
       'd1': 'يومي',
-      
+
       // Currency Pairs
       'eurUsd': 'EUR/USD',
       'gbpUsd': 'GBP/USD',
@@ -932,7 +1015,7 @@ class AppTranslations extends Translations {
       'usdTry': 'USD/TRY',
       'cnhUsd': 'CNH/USD',
       'usdSek': 'USD/SEK',
-      
+
       // Additional Paper Trading
       'openNewPosition': 'فتح صفقة جديدة',
       'live': 'مباشر',
@@ -956,7 +1039,7 @@ class AppTranslations extends Translations {
       'current': 'الحالي',
       'sl': 'وقف الخسارة',
       'tp': 'جني الأرباح',
-      
+
       // Additional SYP Page
       'blackMarketRate': 'سعر السوق السوداء',
       'sypPerUsd': 'ليرة سورية لكل دولار',
@@ -969,7 +1052,7 @@ class AppTranslations extends Translations {
       'negative': 'سلبي',
       'tomorrowsForecast': 'توقعات الغد',
       'range': 'النطاق',
-      
+
       // Additional Home Page
       'dashboardUnavailable': 'لوحة التحكم غير متاحة',
       'unknown': 'غير معروف',
@@ -980,12 +1063,12 @@ class AppTranslations extends Translations {
       'friday': 'الجمعة',
       'saturday': 'السبت',
       'sunday': 'الأحد',
-      
+
       // City Names
       'aleppo': 'حلب',
       'damascus': 'دمشق',
       'idlib': 'إدلب',
-      
+
       // Additional missing translations
       'tradingData': 'بيانات التداول',
       'open': 'فتح',
@@ -1007,7 +1090,8 @@ class AppTranslations extends Translations {
       'buyPositionOpened': 'تم فتح مركز شراء لـ',
       'sellPositionOpened': 'تم فتح مركز بيع لـ',
       'openPositions': 'المراكز المفتوحة',
-      'noOpenPositionsMessage': 'لا توجد مراكز مفتوحة افتح مركزاً باستخدام النموذج أعلاه',
+      'noOpenPositionsMessage':
+          'لا توجد مراكز مفتوحة افتح مركزاً باستخدام النموذج أعلاه',
       'tradingHistory': 'تاريخ التداول',
       'noTradingHistory': 'لا يوجد تاريخ تداول',
       'spread': 'الفرق',
@@ -1015,7 +1099,7 @@ class AppTranslations extends Translations {
       'bullish': 'صاعد',
       'bearish': 'هابط',
       'volumeLots': 'الحجم (لوت)',
-      
+
       // AI Recommender
       'aiRecommender': 'مُوصي الذكاء الاصطناعي الهجين',
       'aiAnalysis': 'التحليل بالذكاء الاصطناعي',
@@ -1045,26 +1129,27 @@ class AppTranslations extends Translations {
       'liveAnalysis': 'التحليل المباشر',
       'refreshAnalysis': 'تحديث التحليل',
       'waitingForPriceData': 'في انتظار بيانات الأسعار...',
-      
+
       // AI Recommender Analysis
       'technicalAnalysisShows': 'التحليل الفني يظهر زخم {trend}',
       'technicalAnalysisIndicates': 'التحليل الفني يشير إلى ضغط {trend}',
       'fundamentalFactorsSupportUpward': 'العوامل الأساسية تدعم الحركة الصاعدة',
-      'fundamentalFactorsSuggestDownward': 'العوامل الأساسية تشير إلى الحركة الهابطة',
+      'fundamentalFactorsSuggestDownward':
+          'العوامل الأساسية تشير إلى الحركة الهابطة',
       'mixedSignalsFromAnalysis': 'إشارات مختلطة من التحليل الفني والأساسي',
       'marketConditionsUncertain': 'ظروف السوق غير مؤكدة',
       'confidenceLevel': 'مستوى الثقة',
-      
+
       // Technical Trends
       'bullish': 'صاعد',
       'bearish': 'هابط',
       'neutral': 'محايد',
-      
+
       // Market Sentiment
       'bullishSentiment': 'صاعد',
       'bearishSentiment': 'هابط',
       'neutralSentiment': 'محايد',
-      
+
       // Technical Indicators
       'rsiOverbought': 'RSI مشترى أكثر من اللازم',
       'rsiOversold': 'RSI مباع أكثر من اللازم',
@@ -1073,24 +1158,24 @@ class AppTranslations extends Translations {
       'bollingerOverbought': 'بولينجر مشترى أكثر من اللازم',
       'bollingerOversold': 'بولينجر مباع أكثر من اللازم',
       'insufficientData': 'بيانات غير كافية',
-      
+
       // Fundamental Factors
       'strongMomentum': 'زخم {trend} قوي',
       'weeklyTrend': 'اتجاه أسبوعي {trend}',
       'positive7DayForecast': 'توقع إيجابي لـ 7 أيام',
       'negative7DayForecast': 'توقع سلبي لـ 7 أيام',
-      
+
       // Form Hints
       'enterVolumeHint': 'أدخل الحجم (مثال: 0.1)',
       'usdExample': 'دولار أمريكي (مثال: 50)',
       'usdExample100': 'دولار أمريكي (مثال: 100)',
-      
+
       // Time Horizons
       'timeHorizon1To2Hours': '1-2 ساعة',
       'timeHorizon2To4Hours': '2-4 ساعات',
       'timeHorizon4To8Hours': '4-8 ساعات',
       'timeHorizon8To24Hours': '8-24 ساعة',
-      
+
       // AI Recommender Real Data Analysis
       'tomorrowTrendUp': 'اتجاه الغد صاعد',
       'tomorrowTrendDown': 'اتجاه الغد هابط',
