@@ -62,23 +62,17 @@ class CityRate {
   final int ask;
   final int bid;
 
-  CityRate({
-    required this.ask,
-    required this.bid,
-  });
+  CityRate({required this.ask, required this.bid});
 
   factory CityRate.fromJson(Map<String, dynamic> json) {
     return CityRate(
-      ask: json['ask'] ?? 0,
-      bid: json['bid'] ?? 0,
+      ask: (json['ask'] ?? 0).toInt(),
+      bid: (json['bid'] ?? 0).toInt(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'ask': ask,
-      'bid': bid,
-    };
+    return {'ask': ask, 'bid': bid};
   }
 
   // Convenience getters
@@ -90,9 +84,9 @@ class CityRate {
 }
 
 class Currency {
-  final int ask;
-  final int bid;
-  final int change;
+  final double ask;
+  final double bid;
+  final double change;
   final double changePercentage;
   final double mid;
   final String name;
@@ -110,13 +104,13 @@ class Currency {
 
   factory Currency.fromJson(Map<String, dynamic> json) {
     return Currency(
-      ask: json['ask'] ?? 0,
-      bid: json['bid'] ?? 0,
-      change: json['change'] ?? 0,
+      ask: (json['ask'] ?? 0.0).toDouble(),
+      bid: (json['bid'] ?? 0.0).toDouble(),
+      change: (json['change'] ?? 0.0).toDouble(),
       changePercentage: (json['change_percentage'] ?? 0.0).toDouble(),
       mid: (json['mid'] ?? 0.0).toDouble(),
       name: json['name'] ?? '',
-      previousRates: json['previous_rates'] != null 
+      previousRates: json['previous_rates'] != null
           ? PreviousRates.fromJson(json['previous_rates'])
           : null,
     );
@@ -137,13 +131,13 @@ class Currency {
   // Convenience getters
   bool get isPositiveChange => change > 0;
   bool get isNegativeChange => change < 0;
-  int get spread => bid - ask;
+  double get spread => bid - ask;
   String get formattedAsk => ask.toString();
   String get formattedBid => bid.toString();
   String get formattedMid => mid.toStringAsFixed(1);
   String get formattedChange => change > 0 ? '+$change' : change.toString();
-  String get formattedChangePercentage => changePercentage > 0 
-      ? '+${changePercentage.toStringAsFixed(2)}%' 
+  String get formattedChangePercentage => changePercentage > 0
+      ? '+${changePercentage.toStringAsFixed(2)}%'
       : '${changePercentage.toStringAsFixed(2)}%';
 }
 
@@ -151,23 +145,17 @@ class DamascusPrediction {
   final int ask;
   final int bid;
 
-  DamascusPrediction({
-    required this.ask,
-    required this.bid,
-  });
+  DamascusPrediction({required this.ask, required this.bid});
 
   factory DamascusPrediction.fromJson(Map<String, dynamic> json) {
     return DamascusPrediction(
-      ask: json['ask'] ?? 0,
-      bid: json['bid'] ?? 0,
+      ask: (json['ask'] ?? 0).toInt(),
+      bid: (json['bid'] ?? 0).toInt(),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'ask': ask,
-      'bid': bid,
-    };
+    return {'ask': ask, 'bid': bid};
   }
 
   // Convenience getters
@@ -199,7 +187,7 @@ class OHLCV {
       high: (json['high'] ?? 0.0).toDouble(),
       low: (json['low'] ?? 0.0).toDouble(),
       open: (json['open'] ?? 0.0).toDouble(),
-      volume: json['volume'] ?? 0,
+      volume: (json['volume'] ?? 0.0).toInt(),
     );
   }
 
@@ -216,22 +204,23 @@ class OHLCV {
   // Convenience getters
   double get range => high - low;
   double get changeFromOpen => close - open;
-  double get changePercentageFromOpen => open != 0 ? ((close - open) / open) * 100 : 0.0;
+  double get changePercentageFromOpen =>
+      open != 0 ? ((close - open) / open) * 100 : 0.0;
   bool get isGreenCandle => close > open;
   bool get isRedCandle => close < open;
   bool get isDoji => close == open;
-  
+
   String get formattedOpen => open.toStringAsFixed(1);
   String get formattedHigh => high.toStringAsFixed(1);
   String get formattedLow => low.toStringAsFixed(1);
   String get formattedClose => close.toStringAsFixed(1);
   String get formattedVolume => volume.toString();
   String get formattedRange => range.toStringAsFixed(1);
-  String get formattedChangeFromOpen => changeFromOpen > 0 
-      ? '+${changeFromOpen.toStringAsFixed(1)}' 
+  String get formattedChangeFromOpen => changeFromOpen > 0
+      ? '+${changeFromOpen.toStringAsFixed(1)}'
       : changeFromOpen.toStringAsFixed(1);
-  String get formattedChangePercentageFromOpen => changePercentageFromOpen > 0 
-      ? '+${changePercentageFromOpen.toStringAsFixed(2)}%' 
+  String get formattedChangePercentageFromOpen => changePercentageFromOpen > 0
+      ? '+${changePercentageFromOpen.toStringAsFixed(2)}%'
       : '${changePercentageFromOpen.toStringAsFixed(2)}%';
 }
 
@@ -252,8 +241,8 @@ class PreviousRates {
 
   factory PreviousRates.fromJson(Map<String, dynamic> json) {
     return PreviousRates(
-      ask: json['ask'] ?? 0,
-      bid: json['bid'] ?? 0,
+      ask: (json['ask'] ?? 0).toInt(),
+      bid: (json['bid'] ?? 0).toInt(),
       mid: (json['mid'] ?? 0.0).toDouble(),
       source: json['source'] ?? '',
       timestamp: json['timestamp'] ?? '',
@@ -279,11 +268,12 @@ class PreviousRates {
       return null;
     }
   }
-  
+
   String get formattedAsk => ask.toString();
   String get formattedBid => bid.toString();
   String get formattedMid => mid.toStringAsFixed(1);
-  String get formattedSource => source.replaceAll('-', ' ').replaceAll('.com', '').toUpperCase();
+  String get formattedSource =>
+      source.replaceAll('-', ' ').replaceAll('.com', '').toUpperCase();
   String get formattedTimestamp {
     final date = parsedTimestamp;
     if (date == null) return timestamp;

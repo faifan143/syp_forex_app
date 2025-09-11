@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/paper_trading_models.dart';
 import '../models/forex_models.dart';
 import '../services/market_simulation_service.dart';
@@ -29,6 +31,8 @@ class PaperTradingProvider extends GetxController {
   bool get isSimulationRunning => _isSimulationRunning;
   Map<String, double> get currentPrices => _currentPrices;
   Map<String, List<Map<String, double>>> get chartData => _chartData;
+  Stream<Map<String, List<Map<String, double>>>>? get chartDataStream =>
+      _marketService.chartStream;
 
   // Computed properties
   double get currentBalance => _wallet.balance;
@@ -45,7 +49,90 @@ class PaperTradingProvider extends GetxController {
   // Initialize the provider
   void initialize() {
     _wallet = VirtualWallet.initial();
+    _loadWalletData(); // Load saved data on initialization
     update();
+  }
+
+  // Load wallet data from SharedPreferences
+  Future<void> _loadWalletData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Load wallet data
+      final balance = prefs.getDouble('wallet_balance') ?? 100000.0;
+      final margin = prefs.getDouble('wallet_margin') ?? 0.0;
+      final freeMargin = prefs.getDouble('wallet_free_margin') ?? 100000.0;
+      final lastUpdate = DateTime.fromMillisecondsSinceEpoch(
+        prefs.getInt('wallet_last_update') ??
+            DateTime.now().millisecondsSinceEpoch,
+      );
+
+      // Load open positions
+      final positionsJson = prefs.getString('wallet_open_positions') ?? '[]';
+      final List<dynamic> positionsData = json.decode(positionsJson);
+      final List<Position> positions = positionsData
+          .map((data) => Position.fromJson(data))
+          .toList();
+
+      // Load trade history
+      final tradesJson = prefs.getString('wallet_trade_history') ?? '[]';
+      final List<dynamic> tradesData = json.decode(tradesJson);
+      final List<ClosedTrade> trades = tradesData
+          .map((data) => ClosedTrade.fromJson(data))
+          .toList();
+
+      // Create wallet with loaded data
+      _wallet = VirtualWallet(
+        balance: balance,
+        equity: balance, // Will be recalculated by currentEquity getter
+        margin: margin,
+        freeMargin: freeMargin,
+        marginLevel: margin > 0 ? (balance / margin) * 100 : 0.0,
+        openPositions: positions,
+        tradeHistory: trades,
+        lastUpdate: lastUpdate,
+      );
+
+      print('✅ [PAPER_TRADING] Loaded wallet data from SharedPreferences');
+      print('💰 Balance: \$${balance.toStringAsFixed(2)}');
+      print('📊 Open Positions: ${positions.length}');
+      print('📈 Trade History: ${trades.length} trades');
+    } catch (e) {
+      print('❌ [PAPER_TRADING] Error loading wallet data: $e');
+      // Keep default wallet if loading fails
+    }
+  }
+
+  // Save wallet data to SharedPreferences
+  Future<void> _saveWalletData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Save basic wallet data
+      await prefs.setDouble('wallet_balance', _wallet.balance);
+      await prefs.setDouble('wallet_margin', _wallet.margin);
+      await prefs.setDouble('wallet_free_margin', _wallet.freeMargin);
+      await prefs.setInt(
+        'wallet_last_update',
+        _wallet.lastUpdate.millisecondsSinceEpoch,
+      );
+
+      // Save open positions
+      final positionsJson = json.encode(
+        _wallet.openPositions.map((position) => position.toJson()).toList(),
+      );
+      await prefs.setString('wallet_open_positions', positionsJson);
+
+      // Save trade history
+      final tradesJson = json.encode(
+        _wallet.tradeHistory.map((trade) => trade.toJson()).toList(),
+      );
+      await prefs.setString('wallet_trade_history', tradesJson);
+
+      print('💾 [PAPER_TRADING] Saved wallet data to SharedPreferences');
+    } catch (e) {
+      print('❌ [PAPER_TRADING] Error saving wallet data: $e');
+    }
   }
 
   // Start market simulation (now primarily for chart data, prices come from dashboard)
@@ -227,6 +314,7 @@ class PaperTradingProvider extends GetxController {
     print(
       '🔄 [TRADE_HISTORY] Position closed automatically: ${position.symbol} - P&L: \$${finalPnL.toStringAsFixed(2)}',
     );
+    _saveWalletData(); // Save to SharedPreferences
     update(); // Notify UI of changes
   }
 
@@ -236,6 +324,7 @@ class PaperTradingProvider extends GetxController {
     _wallet = VirtualWallet.initial();
     _currentPrices.clear();
     _chartData.clear();
+    _saveWalletData(); // Save reset state to SharedPreferences
     _clearError();
     update();
   }
@@ -453,6 +542,7 @@ class PaperTradingProvider extends GetxController {
         lastUpdate: DateTime.now(),
       );
 
+      _saveWalletData(); // Save to SharedPreferences
       _clearError();
     } catch (e) {
       _setError('Failed to open position: $e');
@@ -541,6 +631,7 @@ class PaperTradingProvider extends GetxController {
       print(
         '🔄 [TRADE_HISTORY] Position closed manually: ${position.symbol} - P&L: \$${finalPnL.toStringAsFixed(2)}',
       );
+      _saveWalletData(); // Save to SharedPreferences
       _clearError();
       update(); // Notify UI of changes
     } catch (e) {
@@ -553,6 +644,7 @@ class PaperTradingProvider extends GetxController {
   // Reset wallet to initial state
   void resetWallet() {
     _wallet = VirtualWallet.initial();
+    _saveWalletData(); // Save reset state to SharedPreferences
     _clearError();
     update();
   }
@@ -569,6 +661,30 @@ class PaperTradingProvider extends GetxController {
   // Clear error
   void clearError() {
     _clearError();
+  }
+
+  // Clear all saved data from SharedPreferences
+  Future<void> clearSavedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('wallet_balance');
+      await prefs.remove('wallet_margin');
+      await prefs.remove('wallet_free_margin');
+      await prefs.remove('wallet_last_update');
+      await prefs.remove('wallet_open_positions');
+      await prefs.remove('wallet_trade_history');
+
+      print(
+        '🗑️ [PAPER_TRADING] Cleared all saved data from SharedPreferences',
+      );
+    } catch (e) {
+      print('❌ [PAPER_TRADING] Error clearing saved data: $e');
+    }
+  }
+
+  // Manually save current wallet data (useful for debugging)
+  Future<void> saveCurrentData() async {
+    await _saveWalletData();
   }
 
   // Modify position (for stop loss/take profit updates)
@@ -601,6 +717,7 @@ class PaperTradingProvider extends GetxController {
         lastUpdate: DateTime.now(),
       );
 
+      _saveWalletData(); // Save to SharedPreferences
       _clearError();
     } catch (e) {
       _setError('Failed to modify position: $e');

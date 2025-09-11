@@ -40,7 +40,6 @@ class _ComprehensivePaperTradingPageState
   // Chart data caching
   final Map<String, Map<String, List<Map<String, double>>>> _cachedChartData =
       {};
-  DateTime? _lastDataGeneration;
 
   // Timer for periodic dashboard data sync
   Timer? _dashboardSyncTimer;
@@ -79,6 +78,28 @@ class _ComprehensivePaperTradingPageState
         ),
       ],
     );
+  }
+
+  // Convert timeframe format for chart page
+  String _convertTimeframeForChart(String timeframe) {
+    switch (timeframe) {
+      case '1m':
+        return 'M1';
+      case '5m':
+        return 'M5';
+      case '15m':
+        return 'M15';
+      case '30m':
+        return 'M30';
+      case '1h':
+        return 'H1';
+      case '4h':
+        return 'H4';
+      case '1d':
+        return 'D1';
+      default:
+        return 'H1'; // Default fallback
+    }
   }
 
   // Get pip size for different currency pairs
@@ -304,7 +325,6 @@ class _ComprehensivePaperTradingPageState
 
       // Clear chart cache to force refresh with new timeframe
       _cachedChartData.clear();
-      _lastDataGeneration = null;
 
       // Chart will automatically refresh due to setState
 
@@ -340,7 +360,6 @@ class _ComprehensivePaperTradingPageState
           _updatePaperTradingWithForexData(forexProvider, paperProvider);
           // Clear chart cache to force refresh with new data
           _cachedChartData.clear();
-          _lastDataGeneration = null;
           setState(() {}); // Refresh the UI
         }
       });
@@ -1305,50 +1324,64 @@ class _ComprehensivePaperTradingPageState
                               ),
                             ],
                           ),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
+                          trailing: Container(
+                            constraints: const BoxConstraints(maxWidth: 120),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // P&L with percentage in one line
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isProfit
+                                            ? Colors.green.withOpacity(0.1)
+                                            : Colors.red.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '${isProfit ? '+' : ''}\$${t.realizedPnL.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          color: isProfit
+                                              ? Colors.green
+                                              : Colors.red,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${((t.closePrice - t.openPrice) / t.openPrice * 100).toStringAsFixed(1)}%',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: isProfit
+                                            ? Colors.green
+                                            : Colors.red,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                decoration: BoxDecoration(
-                                  color: isProfit
-                                      ? Colors.green.withOpacity(0.1)
-                                      : Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  (isProfit ? '+' : '') +
-                                      '\$${t.realizedPnL.toStringAsFixed(2)}',
-                                  style: TextStyle(
-                                    color: isProfit ? Colors.green : Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                const SizedBox(height: 2),
+                                // Fee in smaller text
+                                if (t.commission > 0)
+                                  Text(
+                                    'Fee: \$${t.commission.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      color: Colors.grey,
+                                    ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              if (t.commission > 0)
-                                Text(
-                                  'Fee: \$${t.commission.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${((t.closePrice - t.openPrice) / t.openPrice * 100).toStringAsFixed(2)}%',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: isProfit ? Colors.green : Colors.red,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -1424,82 +1457,66 @@ class _ComprehensivePaperTradingPageState
     );
   }
 
-  // Get chart data based on dashboard data with proper caching and timeframe handling
+  // Get chart data from live simulation service
   List<Map<String, double>> _getChartData() {
-    final now = DateTime.now();
+    final paperProvider = Get.find<PaperTradingProvider>();
 
-    // Check if we have cached data for this symbol and timeframe
-    if (_cachedChartData.containsKey(_selectedSymbol) &&
-        _cachedChartData[_selectedSymbol]!.containsKey(_selectedTimeframe)) {
-      final cachedData =
-          _cachedChartData[_selectedSymbol]![_selectedTimeframe]!;
-      final lastGeneration = _lastDataGeneration;
-
-      // Check if we need to update based on timeframe
-      if (lastGeneration != null) {
-        final timeSinceLastUpdate = now.difference(lastGeneration);
-        final shouldUpdate = _shouldUpdateForTimeframe(timeSinceLastUpdate);
-
-        if (!shouldUpdate) {
-          return cachedData;
-        }
+    // Use live simulation chart data if available
+    if (paperProvider.isSimulationRunning) {
+      final chartData = paperProvider.chartData;
+      if (chartData.containsKey(_selectedSymbol)) {
+        final candles = chartData[_selectedSymbol]!;
+        print(
+          '📊 [CHART_DATA] Using live simulation data: ${_selectedSymbol} with ${candles.length} candles',
+        );
+        return candles;
       }
     }
 
-    // Get base price from dashboard data if available
-    final forexProvider = Get.find<ForexProvider>();
+    // Fallback: generate initial data if simulation not running
+    print(
+      '📊 [CHART_DATA] Simulation not running, generating initial data for ${_selectedSymbol}',
+    );
+    return _generateInitialChartData();
+  }
+
+  // Generate initial chart data as fallback
+  List<Map<String, double>> _generateInitialChartData() {
+    final paperProvider = Get.find<PaperTradingProvider>();
     double basePrice = 1.1000; // Default fallback
 
-    if (forexProvider.dashboardData != null) {
-      // Find the current price from dashboard data
+    // Try to get current price from simulation
+    if (paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+      basePrice = paperProvider.currentPrices[_selectedSymbol]!;
+    }
+    // Fallback to dashboard data
+    else if (Get.find<ForexProvider>().dashboardData != null) {
       try {
-        final currency = forexProvider.dashboardData!.currencies.firstWhere(
-          (c) => c.pair == _selectedSymbol,
-        );
+        String dashboardSymbol1 = _selectedSymbol.replaceAll('/', '');
+        String dashboardSymbol2 = _selectedSymbol;
+
+        Currency? currency;
+        try {
+          currency = Get.find<ForexProvider>().dashboardData!.currencies
+              .firstWhere((c) => c.pair == dashboardSymbol1);
+        } catch (e) {
+          currency = Get.find<ForexProvider>().dashboardData!.currencies
+              .firstWhere((c) => c.pair == dashboardSymbol2);
+        }
+
         basePrice = currency.currentValue;
       } catch (e) {
-        // Symbol not found in dashboard data, use default
         basePrice = 1.1000;
       }
-    } else if (forexProvider.forexRates.containsKey(_selectedSymbol)) {
-      // Fallback to forex rates
-      basePrice = forexProvider.forexRates[_selectedSymbol]!.rate;
     }
 
-    // Generate new data based on dashboard price
-    final newData = RealisticDataGenerator.generateTimeframeData(
+    // Generate initial data using the same logic as simulation service
+    return RealisticDataGenerator.generateTimeframeData(
       timeframe: _selectedTimeframe,
       symbol: _selectedSymbol,
       days: 7,
-      basePrice: basePrice, // Use dashboard price as base
+      basePrice: basePrice,
     );
-
-    // Cache the data
-    _cachedChartData[_selectedSymbol] ??= {};
-    _cachedChartData[_selectedSymbol]![_selectedTimeframe] = newData;
-    _lastDataGeneration = now;
-
-    return newData;
-  }
-
-  // Determine if data should be updated based on timeframe
-  bool _shouldUpdateForTimeframe(Duration timeSinceLastUpdate) {
-    switch (_selectedTimeframe) {
-      case 'M1':
-        return timeSinceLastUpdate.inMinutes >= 1;
-      case 'M5':
-        return timeSinceLastUpdate.inMinutes >= 5;
-      case 'M15':
-        return timeSinceLastUpdate.inMinutes >= 15;
-      case 'H1':
-        return timeSinceLastUpdate.inHours >= 1;
-      case 'H4':
-        return timeSinceLastUpdate.inHours >= 4;
-      case 'D1':
-        return timeSinceLastUpdate.inDays >= 1;
-      default:
-        return timeSinceLastUpdate.inMinutes >= 15; // Default to M15
-    }
   }
 
   // Generate recent candles for AI recommender technical analysis
@@ -1549,12 +1566,52 @@ class _ComprehensivePaperTradingPageState
   void _showFullscreenChart() {
     final candles = _getChartData();
 
+    // Get current price for the chart
+    final paperProvider = Get.find<PaperTradingProvider>();
+    double currentPrice = 1.1000; // Default fallback
+
+    // PRIORITIZE SIMULATION DATA for real-time chart
+    if (paperProvider.isSimulationRunning &&
+        paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+      currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
+      print(
+        '📊 [FULLSCREEN_CHART] Using simulation data: ${_selectedSymbol} = $currentPrice',
+      );
+    }
+    // Fallback to dashboard data
+    else if (Get.find<ForexProvider>().dashboardData != null) {
+      try {
+        String dashboardSymbol1 = _selectedSymbol.replaceAll('/', '');
+        String dashboardSymbol2 = _selectedSymbol;
+
+        Currency? currency;
+        try {
+          currency = Get.find<ForexProvider>().dashboardData!.currencies
+              .firstWhere((c) => c.pair == dashboardSymbol1);
+        } catch (e) {
+          currency = Get.find<ForexProvider>().dashboardData!.currencies
+              .firstWhere((c) => c.pair == dashboardSymbol2);
+        }
+
+        currentPrice = currency.currentValue;
+        print(
+          '📊 [FULLSCREEN_CHART] Using dashboard data: ${_selectedSymbol} = $currentPrice',
+        );
+      } catch (e) {
+        print('📊 [FULLSCREEN_CHART] Using default price: $currentPrice');
+      }
+    }
+
+    print(
+      '📊 [FULLSCREEN_CHART] Opening chart for ${_selectedSymbol} ${_selectedTimeframe} with ${candles.length} candles',
+    );
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => FullscreenChartPage(
           symbol: _selectedSymbol,
-          timeframe: _selectedTimeframe,
+          timeframe: _convertTimeframeForChart(_selectedTimeframe),
           initialCandles: candles,
         ),
       ),
