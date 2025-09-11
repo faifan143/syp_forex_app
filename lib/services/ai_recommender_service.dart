@@ -122,31 +122,54 @@ class AIRecommenderService {
     final technicalStrength = technicalAnalysis['strength'] as double;
     final fundamentalSentiment = fundamentalAnalysis['sentiment'] as String;
     final fundamentalStrength = fundamentalAnalysis['strength'] as double;
+    final tomorrowTrend = fundamentalAnalysis['tomorrowTrend'] as String;
+    final weekTrend = fundamentalAnalysis['weekTrend'] as String;
+    final tomorrowChangePercent = fundamentalAnalysis['tomorrowChangePercent'] as double? ?? 0.0;
+    final weekChangePercent = fundamentalAnalysis['weekChangePercent'] as double? ?? 0.0;
 
-    // Combine technical and fundamental analysis
+    // Use REAL dashboard data for recommendations
     double buyScore = 0.0;
     double sellScore = 0.0;
+    String reasoning = '';
 
-    // Technical analysis scoring
-    if (technicalTrend == 'bullish') {
-      buyScore += technicalStrength * 0.4;
-    } else if (technicalTrend == 'bearish') {
-      sellScore += technicalStrength * 0.4;
+    // 1. TOMORROW TREND (40% weight) - Most important
+    if (tomorrowTrend == 'up') {
+      buyScore += 0.4;
+      reasoning += 'tomorrowTrendUp'.tr;
+    } else if (tomorrowTrend == 'down') {
+      sellScore += 0.4;
+      reasoning += 'tomorrowTrendDown'.tr;
     }
 
-    // Fundamental analysis scoring
-    if (fundamentalSentiment == 'bullish') {
-      buyScore += fundamentalStrength * 0.3;
-    } else if (fundamentalSentiment == 'bearish') {
-      sellScore += fundamentalStrength * 0.3;
+    // 2. WEEK TREND (30% weight) - Important for direction
+    if (weekTrend == 'up') {
+      buyScore += 0.3;
+      reasoning += reasoning.isNotEmpty ? '. ${'weekTrendUp'.tr}' : 'weekTrendUp'.tr;
+    } else if (weekTrend == 'down') {
+      sellScore += 0.3;
+      reasoning += reasoning.isNotEmpty ? '. ${'weekTrendDown'.tr}' : 'weekTrendDown'.tr;
     }
 
-    // Add some randomness to make it more realistic
-    final random = Random();
-    buyScore += (random.nextDouble() - 0.5) * 0.2;
-    sellScore += (random.nextDouble() - 0.5) * 0.2;
+    // 3. CHANGE PERCENTAGES (20% weight) - Strength of movement
+    final avgChangePercent = (tomorrowChangePercent + weekChangePercent) / 2;
+    if (avgChangePercent > 0.5) {
+      buyScore += 0.2;
+      reasoning += reasoning.isNotEmpty ? '. ${'strongUpwardMomentum'.tr}' : 'strongUpwardMomentum'.tr;
+    } else if (avgChangePercent < -0.5) {
+      sellScore += 0.2;
+      reasoning += reasoning.isNotEmpty ? '. ${'strongDownwardMomentum'.tr}' : 'strongDownwardMomentum'.tr;
+    }
 
-    // Determine recommendation type
+    // 4. TECHNICAL CONFIRMATION (10% weight) - Support the trend
+    if (technicalTrend == 'bullish' && buyScore > sellScore) {
+      buyScore += 0.1;
+      reasoning += reasoning.isNotEmpty ? '. ${'technicalConfirmsUpward'.tr}' : 'technicalConfirmsUpward'.tr;
+    } else if (technicalTrend == 'bearish' && sellScore > buyScore) {
+      sellScore += 0.1;
+      reasoning += reasoning.isNotEmpty ? '. ${'technicalConfirmsDownward'.tr}' : 'technicalConfirmsDownward'.tr;
+    }
+
+    // Determine recommendation type based on REAL data
     RecommendationType type;
     if (buyScore > sellScore + 0.1) {
       type = RecommendationType.buy;
@@ -154,9 +177,10 @@ class AIRecommenderService {
       type = RecommendationType.sell;
     } else {
       type = RecommendationType.hold;
+      reasoning = 'mixedSignalsFromAnalysis'.tr;
     }
 
-    // Calculate confidence
+    // Calculate confidence based on data strength
     final maxScore = max(buyScore, sellScore);
     ConfidenceLevel confidence;
     if (maxScore > 0.7) {
@@ -176,13 +200,12 @@ class AIRecommenderService {
     final stopLossPrice = currentPrice - (expectedChange * 0.5);
     final riskRewardRatio = expectedChange.abs() / (expectedChange.abs() * 0.5);
 
-    // Generate reasoning
-    final reasoning = _generateReasoning(
-      type: type,
-      technicalAnalysis: technicalAnalysis,
-      fundamentalAnalysis: fundamentalAnalysis,
-      confidence: confidence,
-    );
+    // Use the reasoning we built from real data
+    if (reasoning.isEmpty) {
+      reasoning = '${'confidenceLevel'.tr}: ${confidence.toString().split('.').last.tr}';
+    } else {
+      reasoning += '. ${'confidenceLevel'.tr}: ${confidence.toString().split('.').last.tr}';
+    }
 
     return AIRecommendation(
       type: type,

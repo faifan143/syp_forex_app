@@ -944,8 +944,6 @@ class _PaperTradingPageState extends State<PaperTradingPage> with TickerProvider
   void _refreshData() {
     final paperProvider = context.read<PaperTradingProvider>();
     final forexProvider = context.read<ForexProvider>();
-    
-    forexProvider.refreshData();
     if (forexProvider.forexRates.isNotEmpty) {
       paperProvider.updateForexRates(forexProvider.forexRates.values.toList());
     }
@@ -986,7 +984,6 @@ class _PaperTradingPageState extends State<PaperTradingPage> with TickerProvider
       price: currentPrice,
       stopLoss: stopLoss,
       takeProfit: takeProfit,
-      comment: comment,
     );
     
     if (paperProvider.error == null) {

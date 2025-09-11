@@ -30,6 +30,8 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
   AIRecommendation? _recommendation;
   bool _isLoading = false;
   String _lastLanguage = '';
+  String _lastSymbol = '';
+  DateTime? _lastRecommendationDate;
   late AnimationController _pulseController;
   late AnimationController _fadeController;
   late Animation<double> _pulseAnimation;
@@ -61,9 +63,15 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
   @override
   void didUpdateWidget(AIRecommenderWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Regenerate recommendation when widget updates (e.g., language change)
-    if (oldWidget.symbol != widget.symbol || 
-        oldWidget.currentPrice != widget.currentPrice) {
+    // Only regenerate recommendation if symbol changes or if it's a new day
+    final now = DateTime.now();
+    final isNewDay = _lastRecommendationDate == null || 
+                     now.day != _lastRecommendationDate!.day ||
+                     now.month != _lastRecommendationDate!.month ||
+                     now.year != _lastRecommendationDate!.year;
+    
+    if (oldWidget.symbol != widget.symbol || isNewDay) {
+      _lastSymbol = widget.symbol;
       _generateRecommendation();
     }
   }
@@ -96,6 +104,7 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
       setState(() {
         _recommendation = recommendation;
         _isLoading = false;
+        _lastRecommendationDate = DateTime.now();
       });
 
       _pulseController.stop();
@@ -116,14 +125,12 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
   Widget build(BuildContext context) {
     return GetBuilder<TranslationController>(
       builder: (translationController) {
-        // Regenerate recommendation when language changes
+        // Update language but don't regenerate recommendation
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (translationController.currentLanguage != _lastLanguage) {
             _lastLanguage = translationController.currentLanguage;
-            // Small delay to ensure translations are loaded
-            Future.delayed(const Duration(milliseconds: 200), () {
-              _generateRecommendation();
-            });
+            // Just update the UI without regenerating recommendation
+            setState(() {});
           }
         });
 

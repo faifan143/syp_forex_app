@@ -70,6 +70,7 @@ class MarketSimulationService {
 
   // Update base prices with real market data
   void updateBasePrices(Map<String, double> newBasePrices) {
+    print('🔄 [MARKET_SIMULATION] Updating base prices: $newBasePrices');
     // Update base prices with real market data
     for (String symbol in newBasePrices.keys) {
       _basePrices[symbol] = newBasePrices[symbol]!;
@@ -80,7 +81,10 @@ class MarketSimulationService {
       for (String symbol in newBasePrices.keys) {
         _currentPrices[symbol] = newBasePrices[symbol]!;
       }
+      print('🔄 [MARKET_SIMULATION] Updated current prices: $_currentPrices');
       _priceController.add(Map.from(_currentPrices));
+    } else {
+      print('⚠️ [MARKET_SIMULATION] Simulation not running, cannot update current prices');
     }
   }
 
@@ -143,7 +147,9 @@ class MarketSimulationService {
     for (String symbol in _currentPrices.keys) {
       final volatility = _volatility[symbol]!;
       final change = _generatePriceChange(volatility);
+      final oldPrice = _currentPrices[symbol]!;
       _currentPrices[symbol] = (_currentPrices[symbol]! + change).clamp(0.0001, 999.9999);
+      print('📈 [MARKET_SIMULATION] $symbol: ${oldPrice.toStringAsFixed(5)} -> ${_currentPrices[symbol]!.toStringAsFixed(5)} (change: ${change.toStringAsFixed(6)})');
     }
     _priceController.add(Map.from(_currentPrices));
   }

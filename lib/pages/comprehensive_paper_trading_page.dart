@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:math';
 import '../providers/paper_trading_provider.dart';
 import '../providers/forex_provider.dart';
-import '../controllers/translation_controller.dart';
 import '../models/paper_trading_models.dart';
 import '../models/forex_models.dart';
 import '../services/realistic_data_generator.dart';
@@ -15,32 +14,34 @@ class ComprehensivePaperTradingPage extends StatefulWidget {
   const ComprehensivePaperTradingPage({super.key});
 
   @override
-  State<ComprehensivePaperTradingPage> createState() => _ComprehensivePaperTradingPageState();
+  State<ComprehensivePaperTradingPage> createState() =>
+      _ComprehensivePaperTradingPageState();
 }
 
-class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradingPage> {
-  
+class _ComprehensivePaperTradingPageState
+    extends State<ComprehensivePaperTradingPage> {
   // Trading form controllers
   final _volumeController = TextEditingController(text: '0.1');
   final _stopLossController = TextEditingController();
   final _takeProfitController = TextEditingController();
-  
+
   String _selectedSymbol = 'EUR/USD';
-  String _selectedTimeframe = 'D1';
+  final String _selectedTimeframe = 'D1';
   PositionType _selectedType = PositionType.buy;
-  double _currentPrice = 0.0;
-  
+
   // Key for accessing the interactive chart
-  final GlobalKey<_InteractiveCandlestickChartState> _chartKey = GlobalKey<_InteractiveCandlestickChartState>();
-  bool _showFastMA = true;
-  bool _showSlowMA = true;
-  int _fastMAPeriod = 20;
-  int _slowMAPeriod = 50;
-  
+  final GlobalKey<_InteractiveCandlestickChartState> _chartKey =
+      GlobalKey<_InteractiveCandlestickChartState>();
+  final bool _showFastMA = true;
+  final bool _showSlowMA = true;
+  final int _fastMAPeriod = 20;
+  final int _slowMAPeriod = 50;
+
   // Chart data caching
-  Map<String, Map<String, List<Map<String, double>>>> _cachedChartData = {};
+  final Map<String, Map<String, List<Map<String, double>>>> _cachedChartData =
+      {};
   DateTime? _lastDataGeneration;
-  
+
   // Timer for periodic dashboard data sync
   Timer? _dashboardSyncTimer;
 
@@ -51,7 +52,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     final hslDark = hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0));
     return hslDark.toColor();
   }
-
 
   // Get pip size for different currency pairs
   double _getPipSize(String symbol) {
@@ -65,7 +65,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   // Calculate pip value in USD for a given currency pair, price, and volume
   double _calculatePipValue(String symbol, double currentPrice, double volume) {
     final pipSize = _getPipSize(symbol);
-    
+
     // For major pairs, pip value is typically $10 per lot per pip
     // For JPY pairs, it's approximately $10 per lot per pip (simplified calculation)
     if (symbol.contains('/JPY') || symbol.startsWith('JPY/')) {
@@ -77,17 +77,96 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     }
   }
 
+  // Calculate dollar amount for stop loss or take profit
+  double _calculateDollarAmount(
+    Position position, {
+    bool isTakeProfit = false,
+  }) {
+    final targetPrice = isTakeProfit ? position.takeProfit : position.stopLoss;
+    final priceDifference = (targetPrice - position.openPrice).abs();
+    final pipSize = _getPipSize(position.symbol);
+    final pips = priceDifference / pipSize;
+    final pipValue = _calculatePipValue(
+      position.symbol,
+      position.openPrice,
+      position.volume,
+    );
+    return pips * pipValue;
+  }
+
+  // Get current price for a position from dashboard data or simulation
+  double _getCurrentPriceForPosition(Position position) {
+    final forexProvider = Get.find<ForexProvider>();
+    final paperProvider = Get.find<PaperTradingProvider>();
+
+    // First try dashboard data (real market data)
+    if (forexProvider.dashboardData != null) {
+      // Convert symbol format to match API (EUR/USD -> EURUSD)
+      final apiSymbol = position.symbol.replaceAll('/', '');
+      final currency = forexProvider.dashboardData!.currencies
+          .where((c) => c.pair == apiSymbol)
+          .firstOrNull;
+
+      if (currency != null) {
+        return currency.currentValue;
+      }
+    }
+
+    // Fallback to simulation data
+    if (paperProvider.isSimulationRunning &&
+        paperProvider.currentPrices.containsKey(position.symbol)) {
+      return paperProvider.currentPrices[position.symbol]!;
+    }
+
+    // Last resort: use stored current price
+    return position.currentPrice;
+  }
+
+  // Calculate unrealized P&L using current price from dashboard data
+  double _calculateUnrealizedPnL(Position position, double currentPrice) {
+    // For forex, 1 pip = 0.0001, and pip value is $10 per lot for major pairs
+    const double pipValue = 10.0; // $10 per pip per lot
+    const double pipSize = 0.0001; // 1 pip = 0.0001 for major pairs
+
+    double pips;
+    if (position.type == PositionType.buy) {
+      pips = (currentPrice - position.openPrice) / pipSize;
+    } else {
+      pips = (position.openPrice - currentPrice) / pipSize;
+    }
+
+    return pips * pipValue * position.volume;
+  }
+
   // Helper method to update paper trading with forex data from dashboard or rates
-  void _updatePaperTradingWithForexData(ForexProvider forexProvider, PaperTradingProvider paperProvider) {
+  void _updatePaperTradingWithForexData(
+    ForexProvider forexProvider,
+    PaperTradingProvider paperProvider,
+  ) {
     // Try to get data from dashboard first, then fallback to rates
     if (forexProvider.dashboardData != null) {
       // Convert dashboard data to ForexRate format for paper trading
       final rates = <ForexRate>[];
       for (final currency in forexProvider.dashboardData!.currencies) {
+        // Convert from EURUSD format to EUR/USD format for ForexRate
+        final pair = currency.pair;
+        String fromCurrency, toCurrency, formattedSymbol;
+        if (pair.startsWith('USD')) {
+          // USD pairs: USDJPY -> USD, JPY, USD/JPY
+          fromCurrency = 'USD';
+          toCurrency = pair.substring(3);
+          formattedSymbol = 'USD/$toCurrency';
+        } else {
+          // Other pairs: EURUSD -> EUR, USD, EUR/USD
+          fromCurrency = pair.substring(0, 3);
+          toCurrency = pair.substring(3);
+          formattedSymbol = '$fromCurrency/$toCurrency';
+        }
+
         final rate = ForexRate(
-          fromCurrency: currency.pair.split('/')[0],
-          toCurrency: currency.pair.split('/')[1],
-          symbol: currency.pair,
+          fromCurrency: fromCurrency,
+          toCurrency: toCurrency,
+          symbol: formattedSymbol,
           rate: currency.currentValue,
           timestamp: DateTime.now(),
           change: currency.tomorrowChange,
@@ -96,38 +175,60 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         rates.add(rate);
       }
       paperProvider.updateForexRates(rates);
-      
-      // Feed dashboard data into the simulation as base prices
-      _updateSimulationWithDashboardData(forexProvider.dashboardData!.currencies, paperProvider);
+
+      // Feed dashboard data into the simulation as base prices (simulation continues running)
+      _updateSimulationWithDashboardData(
+        forexProvider.dashboardData!.currencies,
+        paperProvider,
+      );
     } else if (forexProvider.forexRates.isNotEmpty) {
       // Fallback to regular forex rates
       paperProvider.updateForexRates(forexProvider.forexRates.values.toList());
-      
-      // Feed forex rates into simulation as base prices
-      _updateSimulationWithForexRates(forexProvider.forexRates.values.toList(), paperProvider);
+
+      // Feed forex rates into simulation as base prices (simulation continues running)
+      _updateSimulationWithForexRates(
+        forexProvider.forexRates.values.toList(),
+        paperProvider,
+      );
     }
   }
 
   // Update simulation with dashboard data as base prices
-  void _updateSimulationWithDashboardData(List<dynamic> currencies, PaperTradingProvider paperProvider) {
+  void _updateSimulationWithDashboardData(
+    List<dynamic> currencies,
+    PaperTradingProvider paperProvider,
+  ) {
     // Create a map of current prices from dashboard data
     final Map<String, double> dashboardPrices = {};
     for (final currency in currencies) {
-      dashboardPrices[currency.pair] = currency.currentValue;
+      // Convert from EURUSD format to EUR/USD format for simulation
+      final pair = currency.pair;
+      String formattedPair;
+      if (pair.startsWith('USD')) {
+        // USD pairs: USDJPY -> USD/JPY
+        formattedPair = '${pair.substring(0, 3)}/${pair.substring(3)}';
+      } else {
+        // Other pairs: EURUSD -> EUR/USD
+        formattedPair = '${pair.substring(0, 3)}/${pair.substring(3)}';
+      }
+      dashboardPrices[formattedPair] = currency.currentValue;
     }
-    
+
     // Update the simulation service with dashboard prices
     paperProvider.updateSimulationBasePrices(dashboardPrices);
   }
 
   // Update simulation with forex rates as base prices
-  void _updateSimulationWithForexRates(List<ForexRate> rates, PaperTradingProvider paperProvider) {
+  void _updateSimulationWithForexRates(
+    List<ForexRate> rates,
+    PaperTradingProvider paperProvider,
+  ) {
     // Create a map of current prices from forex rates
     final Map<String, double> ratePrices = {};
     for (final rate in rates) {
       ratePrices[rate.symbol] = rate.rate;
     }
-    
+
     // Update the simulation service with rate prices
     paperProvider.updateSimulationBasePrices(ratePrices);
   }
@@ -138,7 +239,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     if (symbol.contains('JPY')) {
       // JPY pairs typically have larger spreads (0.6-1.2%)
       return 0.008; // 0.8%
-    } else if (symbol == 'EUR/USD' || symbol == 'GBP/USD' || symbol == 'AUD/USD') {
+    } else if (symbol == 'EUR/USD' ||
+        symbol == 'GBP/USD' ||
+        symbol == 'AUD/USD') {
       // Major pairs have tighter spreads (0.02-0.05%)
       return 0.0004; // 0.04%
     } else if (symbol.contains('USD')) {
@@ -152,31 +255,29 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
 
   // Calculate realistic spread based on currency pair using percentage-based formula
   // Formula: Bid ≈ Ask - (spread_percentage × Ask) => Spread = spread_percentage × Ask
-  double _calculateRealisticSpread(String symbol, double currentRate) {
-    final spreadPercentage = _getSpreadPercentage(symbol);
-    return currentRate * spreadPercentage;
-  }
 
   @override
   void initState() {
     super.initState();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final forexProvider = Get.find<ForexProvider>();
       final paperProvider = Get.find<PaperTradingProvider>();
-      
+
       // Load forex dashboard data (same as home page) with fallback to rates
       forexProvider.loadForexDashboard(forceRefresh: true);
       paperProvider.initialize();
       paperProvider.startSimulation(); // Start paper trading simulation
-      
+
       // Update paper trading with forex data after a short delay
       Future.delayed(const Duration(milliseconds: 500), () {
         _updatePaperTradingWithForexData(forexProvider, paperProvider);
       });
-      
+
       // Set up periodic refresh to sync with dashboard data
-      _dashboardSyncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _dashboardSyncTimer = Timer.periodic(const Duration(seconds: 30), (
+        timer,
+      ) {
         if (forexProvider.dashboardData != null) {
           _updatePaperTradingWithForexData(forexProvider, paperProvider);
           // Clear chart cache to force refresh with new data
@@ -226,8 +327,8 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           _showFullscreenChart();
         },
         backgroundColor: Colors.blue,
-        child: const Icon(Icons.fullscreen, color: Colors.white),
         tooltip: 'chartFullscreen'.tr,
+        child: const Icon(Icons.fullscreen, color: Colors.white),
       ),
     );
   }
@@ -269,10 +370,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              flex: 3,
-              child: SingleChildScrollView(child: content),
-            ),
+            Expanded(flex: 3, child: SingleChildScrollView(child: content)),
             Expanded(
               flex: 2,
               child: SingleChildScrollView(
@@ -300,9 +398,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         final balance = paperProvider.currentBalance;
         final equity = paperProvider.currentEquity;
         final margin = paperProvider.wallet.margin;
-        final freeMargin = paperProvider.wallet.freeMargin;
-        final marginLevel = paperProvider.wallet.marginLevelPercent;
-        final isMarginCall = paperProvider.isMarginCall;
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -315,15 +410,32 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 offset: const Offset(0, 4),
               ),
             ],
-            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            ),
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isCompact = constraints.maxWidth < 700;
               final tiles = [
-                _kpiTile(icon: Icons.account_balance_wallet, label: 'balance'.tr, value: balance, color: Colors.blue),
-                _kpiTile(icon: Icons.assessment, label: 'equity'.tr, value: equity, color: Colors.indigo),
-                _kpiTile(icon: Icons.shield, label: 'margin'.tr, value: margin, color: Colors.orange),
+                _kpiTile(
+                  icon: Icons.account_balance_wallet,
+                  label: 'balance'.tr,
+                  value: balance,
+                  color: Colors.blue,
+                ),
+                _kpiTile(
+                  icon: Icons.assessment,
+                  label: 'equity'.tr,
+                  value: equity,
+                  color: Colors.indigo,
+                ),
+                _kpiTile(
+                  icon: Icons.shield,
+                  label: 'margin'.tr,
+                  value: margin,
+                  color: Colors.orange,
+                ),
                 // _kpiTile(icon: Icons.wallet_giftcard, label: 'free'.tr, value: freeMargin, color: Colors.green),
                 // _levelTile(marginLevel, isMarginCall),
               ];
@@ -332,7 +444,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               }
               return Row(
                 children: tiles
-                    .map((w) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: w)))
+                    .map(
+                      (w) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: w,
+                        ),
+                      ),
+                    )
                     .toList(),
               );
             },
@@ -342,25 +461,12 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     );
   }
 
-  Widget _buildMetric(String label, String value, {Color? valueColor}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: valueColor ?? Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _kpiTile({required IconData icon, required String label, required double value, required Color color}) {
+  Widget _kpiTile({
+    required IconData icon,
+    required String label,
+    required double value,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -376,50 +482,21 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
-              Text('\$${value.toStringAsFixed(2)}', style: TextStyle(color: _darken(color), fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _levelTile(double level, bool isMarginCall) {
-    final display = level.isFinite ? level.clamp(0, 9999).toStringAsFixed(1) : '0.0';
-    final color = isMarginCall ? Colors.red : Colors.blue;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  value: level.isFinite && level > 0 ? (level / 200).clamp(0.0, 1.0) : 0.0,
-                  strokeWidth: 3,
-                  color: color,
-                  backgroundColor: color.withOpacity(0.15),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
                 ),
               ),
-              Text('%', style: TextStyle(fontSize: 10, color: color)),
-            ],
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('level'.tr, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              Text('$display%', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+              Text(
+                '\$${value.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: _darken(color),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
             ],
           ),
         ],
@@ -452,17 +529,22 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           // Fallback to regular forex rates
           currentRate = forexProvider.forexRates[_selectedSymbol];
         }
-        
+
         return Container(
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Theme.of(context).colorScheme.surfaceVariant, Theme.of(context).colorScheme.surface],
+              colors: [
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+                Theme.of(context).colorScheme.surface,
+              ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
@@ -474,8 +556,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           ),
           child: Column(
             children: [
-           
-              
               // Chart area - Takes full available height with dual scrolling
               Expanded(
                 child: Container(
@@ -486,7 +566,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   ),
                 ),
               ),
-            
             ],
           ),
         );
@@ -495,29 +574,28 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   }
 
   Widget _buildTradingFormSection() {
-    return GetBuilder<PaperTradingProvider>(
-      builder: (paperProvider) {
-        final forexProvider = Get.find<ForexProvider>();
+    return GetBuilder<ForexProvider>(
+      builder: (forexProvider) {
+        final paperProvider = Get.find<PaperTradingProvider>();
         // Get current price from simulation or forex data (same as home page)
         double currentPrice = 0.0;
         double bidPrice = 0.0;
         double askPrice = 0.0;
         double spread = 0.0;
-        
-        // ALWAYS prioritize dashboard data first, then fallback to simulation
+
+        // Prioritize dashboard data first (real data), then fallback to simulation data
         ForexRate? currentRate;
+
+        // First try dashboard data (real market data)
         if (forexProvider.dashboardData != null) {
-          // Convert symbol format from EUR/USD to EURUSD to match API format
+          // Fallback to dashboard data
           final apiSymbol = _selectedSymbol.replaceAll('/', '');
-          print('🔍 [PAPER_TRADING] Available pairs in dashboard: ${forexProvider.dashboardData!.currencies.map((c) => c.pair).toList()}');
-          print('🔍 [PAPER_TRADING] Looking for symbol: $_selectedSymbol -> converted to: $apiSymbol');
-          
+
           // Find currency in dashboard data using converted symbol
           final currency = forexProvider.dashboardData!.currencies
               .where((c) => c.pair == apiSymbol)
               .firstOrNull;
           if (currency != null) {
-            print('📊 [PAPER_TRADING] Using dashboard data for $_selectedSymbol: ${currency.currentValue}');
             // Extract currencies from pair (e.g., EURUSD -> EUR, USD)
             final pair = currency.pair;
             String fromCurrency, toCurrency;
@@ -530,7 +608,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               fromCurrency = pair.substring(0, 3);
               toCurrency = pair.substring(3);
             }
-            
+
             currentRate = ForexRate(
               fromCurrency: fromCurrency,
               toCurrency: toCurrency,
@@ -540,44 +618,49 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               change: currency.tomorrowChange,
               changePercent: currency.tomorrowChangePercent,
             );
-          } else {
-            print('⚠️ [PAPER_TRADING] Symbol $_selectedSymbol not found in dashboard data');
-          }
-        } else {
-          print('⚠️ [PAPER_TRADING] Dashboard data is null');
-        }
-        
-        if (currentRate == null && forexProvider.forexRates.containsKey(_selectedSymbol)) {
+
+            // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
+            final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
+            currentPrice = currentRate.rate;
+            askPrice = currentRate.rate; // Use current rate as ask price
+            bidPrice =
+                askPrice -
+                (spreadPercentage *
+                    askPrice); // Calculate bid using the formula
+            spread = askPrice - bidPrice; // Calculate actual spread
+          } else {}
+        } else {}
+
+        if (currentRate == null &&
+            forexProvider.forexRates.containsKey(_selectedSymbol)) {
           // Fallback to regular forex rates
-          print('📊 [PAPER_TRADING] Using forex rates for $_selectedSymbol');
           currentRate = forexProvider.forexRates[_selectedSymbol];
         }
-        
-        if (currentRate == null && paperProvider.isSimulationRunning && paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+
+        if (currentRate == null &&
+            paperProvider.isSimulationRunning &&
+            paperProvider.currentPrices.containsKey(_selectedSymbol)) {
           // Last resort: use simulation data
-          print('📊 [PAPER_TRADING] Using simulation data for $_selectedSymbol');
           final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
           currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
           askPrice = currentPrice;
           bidPrice = askPrice - (spreadPercentage * askPrice);
           spread = askPrice - bidPrice;
         }
-        
+
         if (currentRate != null) {
           // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
           final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
           currentPrice = currentRate.rate;
           askPrice = currentRate.rate; // Use current rate as ask price
-          bidPrice = askPrice - (spreadPercentage * askPrice); // Calculate bid using the formula
+          bidPrice =
+              askPrice -
+              (spreadPercentage * askPrice); // Calculate bid using the formula
           spread = askPrice - bidPrice; // Calculate actual spread
-          print('💰 [PAPER_TRADING] Calculated prices - Bid: $bidPrice, Ask: $askPrice, Spread: $spread');
-        } else {
-          print('❌ [PAPER_TRADING] No current rate found for $_selectedSymbol');
-        }
-        
+        } else {}
+
         // Update the current price for the AI recommender
-        _currentPrice = currentPrice;
-        
+
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
@@ -612,21 +695,29 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Enhanced price display
                 if (currentPrice > 0) ...[
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                          Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.05),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withOpacity(0.3),
+                      ),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
@@ -644,7 +735,10 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.green[100],
                                   borderRadius: BorderRadius.circular(20),
@@ -664,9 +758,21 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              _buildPriceCard('bid'.tr, bidPrice, Colors.red[600]!),
-                              _buildPriceCard('ask'.tr, askPrice, Colors.green[600]!),
-                              _buildPriceCard('spread'.tr, spread * 10000, Colors.orange[600]!),
+                              _buildPriceCard(
+                                'bid'.tr,
+                                bidPrice,
+                                Colors.red[600]!,
+                              ),
+                              _buildPriceCard(
+                                'ask'.tr,
+                                askPrice,
+                                Colors.green[600]!,
+                              ),
+                              _buildPriceCard(
+                                'spread'.tr,
+                                spread * 10000,
+                                Colors.orange[600]!,
+                              ),
                             ],
                           ),
                         ],
@@ -675,7 +781,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   ),
                   const SizedBox(height: 24),
                 ],
-                
+
                 // Trading form - Responsive layout
                 Column(
                   children: [
@@ -683,7 +789,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                     _buildEnhancedDropdown(
                       'tradingPair'.tr,
                       _selectedSymbol,
-                      forexProvider.availablePairs.map((pair) => pair['symbol']!).toList(),
+                      forexProvider.availablePairs
+                          .map((pair) => pair['symbol']!)
+                          .toList(),
                       (value) {
                         setState(() {
                           _selectedSymbol = value!;
@@ -691,25 +799,25 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                       },
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Position type selector
                     _buildPositionTypeSelector(),
                     const SizedBox(height: 20),
-                    
+
                     // AI Recommender Widget
                     _buildAIRecommenderSection(),
                     const SizedBox(height: 20),
-                    
+
                     // Volume input
                     _buildVolumeInput(),
                     const SizedBox(height: 20),
-                    
+
                     // Risk management section
                     _buildRiskManagementSection(),
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Action buttons
                 _buildActionButtons(paperProvider, currentPrice),
               ],
@@ -724,7 +832,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     return GetBuilder<PaperTradingProvider>(
       builder: (paperProvider) {
         final positions = paperProvider.wallet.openPositions;
-        
+
         return Container(
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -767,7 +875,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   ],
                 ),
               ),
-              
+
               if (positions.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(32),
@@ -815,103 +923,140 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     return GetBuilder<PaperTradingProvider>(
       builder: (paperProvider) {
         final trades = paperProvider.wallet.tradeHistory.reversed.toList();
-        return Container(
-          margin: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
-                spreadRadius: 2,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(Icons.history, color: Colors.blue[600]),
-                    const SizedBox(width: 8),
-                    Text(
-                      'tradeHistory'.tr,
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-              if (trades.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Center(
-                    child: Text('noTradeHistory'.tr, style: const TextStyle(color: Colors.grey)),
+        return Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.shadow.withOpacity(0.1),
+                    spreadRadius: 2,
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: trades.length,
-                  itemBuilder: (context, index) {
-                    final t = trades[index];
-                    final isProfit = t.realizedPnL >= 0;
-                    return ListTile(
-                      dense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                      leading: Icon(
-                        t.type == PositionType.buy ? Icons.trending_up : Icons.trending_down,
-                        color: t.type == PositionType.buy ? Colors.green : Colors.red,
-                      ),
-                      title: Text('${t.symbol}  ${t.volume.toStringAsFixed(2)} lots'),
-                      subtitle: Text(
-                        'Open ${t.openPrice.toStringAsFixed(5)}  →  Close ${t.closePrice.toStringAsFixed(5)}\n${t.openTime.toLocal()} → ${t.closeTime.toLocal()}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            (isProfit ? '+' : '') + t.realizedPnL.toStringAsFixed(2),
-                            style: TextStyle(
-                              color: isProfit ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.history, color: Colors.blue[600]),
+                        const SizedBox(width: 8),
+                        Text(
+                          'tradeHistory'.tr,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          if (t.commission != 0)
-                            Text('Fee ${t.commission.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (trades.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Text(
+                          'noTradeHistory'.tr,
+                          style: const TextStyle(color: Colors.grey),
+                        ),
                       ),
-                    );
-                  },
-                ),
-            ],
-          ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: trades.length,
+                      itemBuilder: (context, index) {
+                        final t = trades[index];
+                        final isProfit = t.realizedPnL >= 0;
+                        return ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 0,
+                          ),
+                          leading: Icon(
+                            t.type == PositionType.buy
+                                ? Icons.trending_up
+                                : Icons.trending_down,
+                            color: t.type == PositionType.buy
+                                ? Colors.green
+                                : Colors.red,
+                          ),
+                          title: Text(
+                            '${t.symbol}  ${t.volume.toStringAsFixed(2)} lots',
+                          ),
+                          subtitle: Text(
+                            'Open ${t.openPrice.toStringAsFixed(5)}  →  Close ${t.closePrice.toStringAsFixed(5)}\n${t.openTime.toLocal()} → ${t.closeTime.toLocal()}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                (isProfit ? '+' : '') +
+                                    t.realizedPnL.toStringAsFixed(2),
+                                style: TextStyle(
+                                  color: isProfit ? Colors.green : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (t.commission != 0)
+                                Text(
+                                  'Fee ${t.commission.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+            // Add spacing below the trade history card to prevent FAB overlap
+            const SizedBox(height: 80),
+          ],
         );
       },
     );
   }
-
 
   Widget _buildScrollableChart(rate) {
     return GetBuilder<PaperTradingProvider>(
       builder: (paperProvider) {
         // Get cached data or generate new data only when needed
         final candles = _getChartData();
-          
+
         return LayoutBuilder(
           builder: (context, constraints) {
             const double leftPadding = 40.0;
             const double rightAxisWidth = 56.0;
             const double pixelsPerCandle = 8.0; // base width per candle
-            final double dynamicWidth = (leftPadding + rightAxisWidth) + (pixelsPerCandle * candles.length);
-            final double canvasWidth = dynamicWidth < constraints.maxWidth ? constraints.maxWidth : dynamicWidth;
+            final double dynamicWidth =
+                (leftPadding + rightAxisWidth) +
+                (pixelsPerCandle * candles.length);
+            final double canvasWidth = dynamicWidth < constraints.maxWidth
+                ? constraints.maxWidth
+                : dynamicWidth;
             return Stack(
               children: [
                 // Horizontal scrollable chart
@@ -940,16 +1085,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                               _showFullscreenChart();
                             },
                             behavior: HitTestBehavior.translucent,
-                            child: Container(
-                              color: Colors.transparent,
-                            ),
+                            child: Container(color: Colors.transparent),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-           
               ],
             );
           },
@@ -958,164 +1100,32 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     );
   }
 
-  Widget _buildSimpleChart(rate) {
-    return GetBuilder<PaperTradingProvider>(
-      builder: (paperProvider) {
-        // Get cached data or generate new data only when needed
-        final candles = _getChartData();
-          
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return InteractiveCandlestickChart(
-              key: _chartKey,
-              candles: candles,
-              size: Size(constraints.maxWidth, constraints.maxHeight),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildChartPlaceholder() {
-    return Container(
-      height: 300,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.grey[100]!,
-            Colors.grey[200]!,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.show_chart,
-              size: 48,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Chart Loading...',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Container(
-      height: 300,
-      decoration: BoxDecoration(
-        color: Colors.red[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red[200]!),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Colors.red,
-            ),
-            SizedBox(height: 16),
-            Text(
-              'failedToLoadChartData'.tr,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.red,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  Widget _buildTimeframeButton(String timeframe) {
-    final isSelected = _selectedTimeframe == timeframe;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedTimeframe = timeframe;
-        });
-        // Clear cached data for this symbol to force regeneration with new timeframe
-        _cachedChartData.remove(_selectedSymbol);
-        Get.find<PaperTradingProvider>().loadChartData(_selectedSymbol, timeframe);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? Colors.blue[600]! : Colors.grey[300]!,
-            width: 1.5,
-          ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ] : null,
-        ),
-        child: Text(
-          timeframe,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-      ),
-    );
-  }
-
   // Get chart data based on dashboard data with proper caching and timeframe handling
   List<Map<String, double>> _getChartData() {
     final now = DateTime.now();
-    
+
     // Check if we have cached data for this symbol and timeframe
-    if (_cachedChartData.containsKey(_selectedSymbol) && 
+    if (_cachedChartData.containsKey(_selectedSymbol) &&
         _cachedChartData[_selectedSymbol]!.containsKey(_selectedTimeframe)) {
-      
-      final cachedData = _cachedChartData[_selectedSymbol]![_selectedTimeframe]!;
+      final cachedData =
+          _cachedChartData[_selectedSymbol]![_selectedTimeframe]!;
       final lastGeneration = _lastDataGeneration;
-      
+
       // Check if we need to update based on timeframe
       if (lastGeneration != null) {
         final timeSinceLastUpdate = now.difference(lastGeneration);
         final shouldUpdate = _shouldUpdateForTimeframe(timeSinceLastUpdate);
-        
+
         if (!shouldUpdate) {
           return cachedData;
         }
       }
     }
-    
+
     // Get base price from dashboard data if available
     final forexProvider = Get.find<ForexProvider>();
     double basePrice = 1.1000; // Default fallback
-    
+
     if (forexProvider.dashboardData != null) {
       // Find the current price from dashboard data
       try {
@@ -1131,7 +1141,7 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       // Fallback to forex rates
       basePrice = forexProvider.forexRates[_selectedSymbol]!.rate;
     }
-    
+
     // Generate new data based on dashboard price
     final newData = RealisticDataGenerator.generateTimeframeData(
       timeframe: _selectedTimeframe,
@@ -1139,15 +1149,15 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       days: 7,
       basePrice: basePrice, // Use dashboard price as base
     );
-    
+
     // Cache the data
     _cachedChartData[_selectedSymbol] ??= {};
     _cachedChartData[_selectedSymbol]![_selectedTimeframe] = newData;
     _lastDataGeneration = now;
-    
+
     return newData;
   }
-  
+
   // Determine if data should be updated based on timeframe
   bool _shouldUpdateForTimeframe(Duration timeSinceLastUpdate) {
     switch (_selectedTimeframe) {
@@ -1172,150 +1182,49 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   List<Candlestick> _generateRecentCandles(double currentPrice) {
     final candles = <Candlestick>[];
     final now = DateTime.now();
-    
+
     // Generate 50 recent candles for technical analysis
     for (int i = 0; i < 50; i++) {
       final time = now.subtract(Duration(hours: i));
-      
+
       // Generate realistic price movement around current price
       final volatility = 0.001; // 0.1% volatility
       final random = Random();
       final change = (random.nextDouble() - 0.5) * volatility * currentPrice;
-      
+
       final open = currentPrice + change;
-      final close = open + ((random.nextDouble() - 0.5) * volatility * currentPrice);
-      final high = [open, close].reduce((a, b) => a > b ? a : b) + (volatility * currentPrice * random.nextDouble());
-      final low = [open, close].reduce((a, b) => a < b ? a : b) - (volatility * currentPrice * random.nextDouble());
-      
-      candles.add(Candlestick(
-        timestamp: time,
-        open: open,
-        high: high,
-        low: low,
-        close: close,
-        volume: 1000, // Default volume for generated data
-      ));
-      
+      final close =
+          open + ((random.nextDouble() - 0.5) * volatility * currentPrice);
+      final high =
+          [open, close].reduce((a, b) => a > b ? a : b) +
+          (volatility * currentPrice * random.nextDouble());
+      final low =
+          [open, close].reduce((a, b) => a < b ? a : b) -
+          (volatility * currentPrice * random.nextDouble());
+
+      candles.add(
+        Candlestick(
+          timestamp: time,
+          open: open,
+          high: high,
+          low: low,
+          close: close,
+          volume: 1000, // Default volume for generated data
+        ),
+      );
+
       // Update current price for next candle (slight trend)
       currentPrice = close;
     }
-    
+
     return candles.reversed.toList(); // Most recent first
   }
 
   // Old tab methods removed - now using comprehensive single view
 
-  Widget _buildChartControls() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-                        children: [
-        _buildControlButton(
-          icon: Icons.refresh,
-          onPressed: () {
-            _chartKey.currentState?.resetView();
-          },
-          tooltip: 'resetView'.tr,
-        ),
-        const SizedBox(width: 8),
-        _buildControlButton(
-          icon: Icons.zoom_in,
-          onPressed: () {
-            _chartKey.currentState?.zoomIn();
-          },
-          tooltip: 'zoomIn'.tr,
-        ),
-        const SizedBox(width: 8),
-        _buildControlButton(
-          icon: Icons.zoom_out,
-          onPressed: () {
-            _chartKey.currentState?.zoomOut();
-          },
-          tooltip: 'zoomOut'.tr,
-        ),
-        const SizedBox(width: 8),
-        _buildControlButton(
-          icon: Icons.fullscreen,
-          onPressed: () {
-            // Toggle fullscreen or maximize chart
-            _showFullscreenChart();
-          },
-          tooltip: 'fullscreen'.tr,
-        ),
-        const SizedBox(width: 8),
-        _buildControlButton(
-          icon: Icons.info_outline,
-          onPressed: () {
-            _showChartHelp();
-          },
-          tooltip: 'chartHelp'.tr,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildControlButton({
-    required IconData icon,
-    required VoidCallback onPressed,
-    required String tooltip,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.7),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: IconButton(
-          onPressed: onPressed,
-          icon: Icon(
-            icon,
-            color: Theme.of(context).colorScheme.surface,
-            size: 18,
-          ),
-          padding: EdgeInsets.zero,
-        ),
-      ),
-    );
-  }
-
-  void _showChartHelp() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('chartControls'.tr),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('📱 Touch Gestures:', style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('• Pinch to zoom in/out'),
-            Text('• Drag to pan around'),
-            Text('• Tap on candle for price details'),
-            SizedBox(height: 16),
-            Text('🎯 Features:', style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('• Crosshair follows your touch'),
-            Text('• Selected candle highlights'),
-            Text('• Price overlay on tap'),
-            Text('• Grid lines for reference'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('gotIt'.tr),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showFullscreenChart() {
     final candles = _getChartData();
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -1352,26 +1261,12 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     );
   }
 
-  Widget _buildQuoteBadge(String label, double value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 6),
-          Text(value.toStringAsFixed(5), style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEnhancedDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
+  Widget _buildEnhancedDropdown(
+    String label,
+    String value,
+    List<String> items,
+    Function(String?) onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1391,17 +1286,17 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           ),
           child: DropdownButtonFormField<String>(
             value: value,
-                        decoration: const InputDecoration(
+            decoration: const InputDecoration(
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
             items: items.map((item) {
               return DropdownMenuItem(
                 value: item,
-                child: Text(
-                  item,
-                  style: const TextStyle(fontSize: 16),
-                ),
+                child: Text(item, style: const TextStyle(fontSize: 16)),
               );
             }).toList(),
             onChanged: onChanged,
@@ -1452,7 +1347,12 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     );
   }
 
-  Widget _buildPositionTypeButton(String label, PositionType type, Color color, IconData icon) {
+  Widget _buildPositionTypeButton(
+    String label,
+    PositionType type,
+    Color color,
+    IconData icon,
+  ) {
     final isSelected = _selectedType == type;
     return GestureDetector(
       onTap: () {
@@ -1476,7 +1376,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           children: [
             Icon(
               icon,
-              color: isSelected ? Theme.of(context).colorScheme.onPrimary : color,
+              color: isSelected
+                  ? Theme.of(context).colorScheme.onPrimary
+                  : color,
               size: 18,
             ),
             const SizedBox(width: 6),
@@ -1486,7 +1388,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? Theme.of(context).colorScheme.onPrimary : color,
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : color,
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
@@ -1516,13 +1420,19 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             hintText: 'enterVolumeHint'.tr,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             filled: true,
-            fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-            suffixIcon: Icon(Icons.analytics, color: Theme.of(context).colorScheme.primary),
+            fillColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            suffixIcon: Icon(
+              Icons.analytics,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
       ],
@@ -1564,9 +1474,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1579,9 +1494,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                     ),
                   ),
                 ],
@@ -1600,7 +1520,10 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -1615,7 +1538,10 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -1631,39 +1557,47 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
   Widget _buildAIRecommenderSection() {
     return GetBuilder<ForexProvider>(
       builder: (forexProvider) {
-        // Get current price from dashboard data
+        final paperProvider = Get.find<PaperTradingProvider>();
+        // Get current price from dashboard data first, then simulation data
         double currentPrice = 0.0;
         Currency? currencyData;
-        
         if (forexProvider.dashboardData != null) {
           // Convert symbol format to match API
           final apiSymbol = _selectedSymbol.replaceAll('/', '');
           currencyData = forexProvider.dashboardData!.currencies
               .where((c) => c.pair == apiSymbol)
               .firstOrNull;
-          
+
           if (currencyData != null) {
             currentPrice = currencyData.currentValue;
           }
         }
-        
+
+        // Fallback to simulation data if dashboard data not available
+        if (currentPrice <= 0 &&
+            paperProvider.isSimulationRunning &&
+            paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+          currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
+        }
+
         if (currentPrice <= 0) {
           return Container(
             margin: const EdgeInsets.symmetric(vertical: 16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.errorContainer.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.3),
+                color: Theme.of(
+                  context,
+                ).colorScheme.errorContainer.withOpacity(0.3),
               ),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.info, 
-                  color: Theme.of(context).colorScheme.error,
-                ),
+                Icon(Icons.info, color: Theme.of(context).colorScheme.error),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -1681,8 +1615,6 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
 
         // Generate recent candles for technical analysis
         final recentCandles = _generateRecentCandles(currentPrice);
-        
-        print('🤖 [AI_RECOMMENDER] Using data - Symbol: $_selectedSymbol, Price: $currentPrice, Candles: ${recentCandles.length}');
 
         return AIRecommenderWidget(
           symbol: _selectedSymbol,
@@ -1698,7 +1630,10 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     );
   }
 
-  Widget _buildActionButtons(PaperTradingProvider paperProvider, double currentPrice) {
+  Widget _buildActionButtons(
+    PaperTradingProvider paperProvider,
+    double currentPrice,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 300) {
@@ -1711,9 +1646,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   onPressed: () {
                     _openPosition(paperProvider, currentPrice);
                   },
-                  icon: const Icon(Icons.trending_up, color: Colors.white, size: 18),
+                  icon: const Icon(
+                    Icons.trending_up,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   label: Text(
-                    '${'buy'.tr} ${_selectedSymbol}',
+                    '${'buy'.tr} $_selectedSymbol',
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1734,9 +1673,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   onPressed: () {
                     _openPosition(paperProvider, currentPrice);
                   },
-                  icon: const Icon(Icons.trending_down, color: Colors.white, size: 18),
+                  icon: const Icon(
+                    Icons.trending_down,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   label: Text(
-                    '${'sell'.tr} ${_selectedSymbol}',
+                    '${'sell'.tr} $_selectedSymbol',
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1761,9 +1704,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   onPressed: () {
                     _openPosition(paperProvider, currentPrice);
                   },
-                  icon: const Icon(Icons.trending_up, color: Colors.white, size: 18),
+                  icon: const Icon(
+                    Icons.trending_up,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   label: Text(
-                    '${'buy'.tr} ${_selectedSymbol}',
+                    '${'buy'.tr} $_selectedSymbol',
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1783,9 +1730,13 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                   onPressed: () {
                     _openPosition(paperProvider, currentPrice);
                   },
-                  icon: const Icon(Icons.trending_down, color: Colors.white, size: 18),
+                  icon: const Icon(
+                    Icons.trending_down,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   label: Text(
-                    '${'sell'.tr} ${_selectedSymbol}',
+                    '${'sell'.tr} $_selectedSymbol',
                     style: const TextStyle(fontSize: 14),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1808,41 +1759,17 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
 
   void _openPosition(PaperTradingProvider paperProvider, double currentPrice) {
     final volume = double.tryParse(_volumeController.text) ?? 0.1;
-    
-    // Convert dollar amounts to actual price levels
-    double? stopLoss;
-    double? takeProfit;
-    
+
+    // Use dollar amounts directly for Stop Loss and Take Profit
+    double? stopLossDollars;
+    double? takeProfitDollars;
+
     if (_stopLossController.text.isNotEmpty) {
-      final stopLossDollars = double.tryParse(_stopLossController.text);
-      if (stopLossDollars != null && stopLossDollars > 0) {
-        // Calculate how many pips = the desired dollar loss
-        final pipValue = _calculatePipValue(_selectedSymbol, currentPrice, volume);
-        final stopLossPips = stopLossDollars / pipValue;
-        final pipSize = _getPipSize(_selectedSymbol);
-        
-        if (_selectedType == PositionType.buy) {
-          stopLoss = currentPrice - (stopLossPips * pipSize);
-        } else {
-          stopLoss = currentPrice + (stopLossPips * pipSize);
-        }
-      }
+      stopLossDollars = double.tryParse(_stopLossController.text);
     }
-    
+
     if (_takeProfitController.text.isNotEmpty) {
-      final takeProfitDollars = double.tryParse(_takeProfitController.text);
-      if (takeProfitDollars != null && takeProfitDollars > 0) {
-        // Calculate how many pips = the desired dollar profit
-        final pipValue = _calculatePipValue(_selectedSymbol, currentPrice, volume);
-        final takeProfitPips = takeProfitDollars / pipValue;
-        final pipSize = _getPipSize(_selectedSymbol);
-        
-        if (_selectedType == PositionType.buy) {
-          takeProfit = currentPrice + (takeProfitPips * pipSize);
-        } else {
-          takeProfit = currentPrice - (takeProfitPips * pipSize);
-        }
-      }
+      takeProfitDollars = double.tryParse(_takeProfitController.text);
     }
 
     // Add position to paper trading
@@ -1851,15 +1778,19 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       type: _selectedType,
       volume: volume,
       price: currentPrice,
-      stopLoss: stopLoss,
-      takeProfit: takeProfit,
+      stopLossDollars: stopLossDollars,
+      takeProfitDollars: takeProfitDollars,
     );
 
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${_selectedType == PositionType.buy ? 'buyPositionOpened'.tr : 'sellPositionOpened'.tr} ${_selectedSymbol}'),
-        backgroundColor: _selectedType == PositionType.buy ? Colors.green : Colors.red,
+        content: Text(
+          '${_selectedType == PositionType.buy ? 'buyPositionOpened'.tr : 'sellPositionOpened'.tr} $_selectedSymbol',
+        ),
+        backgroundColor: _selectedType == PositionType.buy
+            ? Colors.green
+            : Colors.red,
       ),
     );
 
@@ -1868,11 +1799,14 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
     _takeProfitController.clear();
   }
 
-
-  Widget _buildPositionCard(Position position, PaperTradingProvider paperProvider) {
-    final profit = position.unrealizedPnL;
+  Widget _buildPositionCard(
+    Position position,
+    PaperTradingProvider paperProvider,
+  ) {
+    final currentPrice = _getCurrentPriceForPosition(position);
+    final profit = _calculateUnrealizedPnL(position, currentPrice);
     final isProfit = profit >= 0;
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -1889,14 +1823,19 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: position.type == PositionType.buy ? Colors.green : Colors.red,
+                        color: position.type == PositionType.buy
+                            ? Colors.green
+                            : Colors.red,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       position.symbol,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -1909,9 +1848,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 8),
-            
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1919,31 +1858,37 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
                 Text('${'open'.tr}: ${position.openPrice.toStringAsFixed(5)}'),
               ],
             ),
-            
+
             const SizedBox(height: 4),
-            
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('${'current'.tr}: ${position.currentPrice.toStringAsFixed(5)}'),
+                Text(
+                  '${'current'.tr}: ${_getCurrentPriceForPosition(position).toStringAsFixed(5)}',
+                ),
                 if (position.stopLoss > 0)
-                  Text('${'sl'.tr}: ${position.stopLoss.toStringAsFixed(5)}'),
+                  Text(
+                    '${'sl'.tr}: \$${_calculateDollarAmount(position).toStringAsFixed(2)}',
+                  ),
               ],
             ),
-            
+
             if (position.takeProfit > 0) ...[
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${'tp'.tr}: ${position.takeProfit.toStringAsFixed(5)}'),
+                  Text(
+                    '${'tp'.tr}: \$${_calculateDollarAmount(position, isTakeProfit: true).toStringAsFixed(2)}',
+                  ),
                   const SizedBox(),
                 ],
               ),
             ],
-            
+
             const SizedBox(height: 12),
-            
+
             Row(
               children: [
                 Expanded(
@@ -1973,12 +1918,15 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
 
   // Account tab moved to settings page
 
-
-  void _closePosition(Position position, PaperTradingProvider paperProvider) async {
+  void _closePosition(
+    Position position,
+    PaperTradingProvider paperProvider,
+  ) async {
     // Get current price from simulation or forex data (same as home page)
     double currentPrice = 0.0;
-    
-    if (paperProvider.isSimulationRunning && paperProvider.currentPrices.containsKey(position.symbol)) {
+
+    if (paperProvider.isSimulationRunning &&
+        paperProvider.currentPrices.containsKey(position.symbol)) {
       currentPrice = paperProvider.currentPrices[position.symbol]!;
     } else {
       final forexProvider = Get.find<ForexProvider>();
@@ -2004,12 +1952,12 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
         // Fallback to regular forex rates
         currentRate = forexProvider.forexRates[position.symbol];
       }
-      
+
       if (currentRate != null) {
         currentPrice = currentRate.rate;
       }
     }
-    
+
     if (currentPrice == 0.0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2019,9 +1967,9 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       );
       return;
     }
-    
+
     await paperProvider.closePosition(position.id, currentPrice);
-    
+
     if (paperProvider.error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2044,12 +1992,12 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
       context: context,
       builder: (context) {
         final stopLossController = TextEditingController(
-          text: position.stopLoss?.toString() ?? '',
+          text: position.stopLoss.toString(),
         );
         final takeProfitController = TextEditingController(
-          text: position.takeProfit?.toString() ?? '',
+          text: position.takeProfit.toString(),
         );
-        
+
         return AlertDialog(
           title: Text('${'modifyPosition'.tr} ${position.symbol}'),
           content: Column(
@@ -2083,15 +2031,15 @@ class _ComprehensivePaperTradingPageState extends State<ComprehensivePaperTradin
               onPressed: () async {
                 final stopLoss = double.tryParse(stopLossController.text);
                 final takeProfit = double.tryParse(takeProfitController.text);
-                
+
                 await paperProvider.modifyPosition(
                   position.id,
                   stopLoss: stopLoss,
                   takeProfit: takeProfit,
                 );
-                
+
                 Navigator.of(context).pop();
-                
+
                 if (paperProvider.error == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -2143,10 +2091,12 @@ class InteractiveCandlestickChart extends StatefulWidget {
   });
 
   @override
-  State<InteractiveCandlestickChart> createState() => _InteractiveCandlestickChartState();
+  State<InteractiveCandlestickChart> createState() =>
+      _InteractiveCandlestickChartState();
 }
 
-class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChart> {
+class _InteractiveCandlestickChartState
+    extends State<InteractiveCandlestickChart> {
   double _scale = 1.0;
   double _panX = 0.0;
   double _panY = 0.0;
@@ -2154,10 +2104,9 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
   int? _selectedCandleIndex;
   bool _showPriceOverlay = false;
   bool _initialized = false;
-  
+
   // Track previous values for delta calculations
   double _previousScale = 1.0;
-  Offset _previousFocalPoint = Offset.zero;
 
   void resetView() {
     setState(() {
@@ -2167,38 +2116,35 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
       _showPriceOverlay = false;
       _crosshairPosition = null;
       _selectedCandleIndex = null;
-      _initialized = false; // Reset initialization to re-apply last 20 candles view
+      _initialized =
+          false; // Reset initialization to re-apply last 20 candles view
     });
   }
 
   void _initializeView() {
     if (widget.candles.isEmpty || _initialized) return;
-    
+
     setState(() {
       // Calculate scale to show only a target number of candles with proper spacing
       final int targetCandles = widget.initialVisibleCandles;
       final totalCandles = widget.candles.length;
-      
+
       if (totalCandles > targetCandles) {
-        const leftPadding = 40.0;
-        const rightAxisWidth = 56.0;
-        final availableWidth = widget.size.width - leftPadding - rightAxisWidth;
-        
         // Calculate scale to show exactly targetCandles
         // Scale = total candles / target candles
         _scale = totalCandles / targetCandles;
-        
+
         // DISABLED: Pan positioning - axes are now fixed
         // Chart will always show the most recent candles without panning
         // final startIndex = totalCandles - targetCandles;
         // final candleSpacing = availableWidth / totalCandles;
         // final startPosition = startIndex * candleSpacing;
-        
+
         // Keep pan values at 0 - no panning allowed
         _panX = 0.0;
         _panY = 0.0;
       }
-      
+
       _initialized = true;
     });
   }
@@ -2232,7 +2178,7 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
         _initializeView();
       }
     });
-    
+
     return GestureDetector(
       onTapDown: widget.externalScroll ? null : _onTapDown,
       onTapUp: widget.externalScroll ? null : _onTapUp,
@@ -2242,7 +2188,9 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
       onScaleUpdate: _onScaleUpdate, // Only zooming allowed, panning disabled
       onScaleEnd: _onScaleEnd,
       // Use deferToChild to allow vertical scrolling to pass through to page
-      behavior: widget.externalScroll ? HitTestBehavior.translucent : HitTestBehavior.deferToChild,
+      behavior: widget.externalScroll
+          ? HitTestBehavior.translucent
+          : HitTestBehavior.deferToChild,
       child: Stack(
         children: [
           CustomPaint(
@@ -2258,16 +2206,20 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
               fastMAPeriod: widget.fastMAPeriod,
               slowMAPeriod: widget.slowMAPeriod,
               backgroundColor: Theme.of(context).colorScheme.surface,
-              gridColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+              gridColor: Theme.of(
+                context,
+              ).colorScheme.onSurface.withOpacity(0.3),
               textColor: Theme.of(context).colorScheme.onSurface,
-              crosshairColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+              crosshairColor: Theme.of(
+                context,
+              ).colorScheme.onSurface.withOpacity(0.8),
               crosshairDotColor: Theme.of(context).colorScheme.onSurface,
             ),
             size: widget.size,
           ),
           if (_showPriceOverlay && _selectedCandleIndex != null)
             _buildPriceOverlay(),
-          
+
           // Debug info overlay
           // Positioned(
           //   top: 8,
@@ -2293,10 +2245,8 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
     );
   }
 
-
   void _onScaleStart(ScaleStartDetails details) {
     _previousScale = _scale;
-    _previousFocalPoint = details.focalPoint;
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
@@ -2307,26 +2257,22 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
         _scale = (_scale * deltaScale).clamp(0.5, 20.0);
         _previousScale = details.scale;
       }
-      
+
       // DISABLED: Pan (translation) - chart axes are now fixed
       // Only allow zooming, no panning allowed
       // final deltaPan = details.focalPoint - _previousFocalPoint;
       // Damp pan speed slightly to keep control
       // _panX += deltaPan.dx * 0.9;
       // _panY += deltaPan.dy;
-      _previousFocalPoint = details.focalPoint;
-      
+
       // Debug print
-      print('Scale: $_scale, PanX: $_panX (FIXED), PanY: $_panY (FIXED), Details.scale: ${details.scale}');
     });
   }
 
   void _onScaleEnd(ScaleEndDetails details) {
     // Reset tracking values
     _previousScale = 1.0;
-    _previousFocalPoint = Offset.zero;
   }
-
 
   void _onTapDown(TapDownDetails details) {
     setState(() {
@@ -2359,15 +2305,15 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
 
   int? _getCandleIndexAtPosition(Offset position) {
     if (widget.candles.isEmpty) return null;
-    
+
     const leftPadding = 40.0;
     const rightAxisWidth = 56.0;
     final availableWidth = widget.size.width - leftPadding - rightAxisWidth;
     final candleSpacing = availableWidth / widget.candles.length;
-    
+
     final adjustedX = (position.dx - leftPadding) / _scale - _panX;
     final index = (adjustedX / candleSpacing).round();
-    
+
     if (index >= 0 && index < widget.candles.length) {
       return index;
     }
@@ -2375,7 +2321,8 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
   }
 
   Widget _buildPriceOverlay() {
-    if (_selectedCandleIndex == null || _selectedCandleIndex! >= widget.candles.length) {
+    if (_selectedCandleIndex == null ||
+        _selectedCandleIndex! >= widget.candles.length) {
       return const SizedBox.shrink();
     }
 
@@ -2390,7 +2337,10 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.8),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isGreen ? Colors.green : Colors.red, width: 2),
+          border: Border.all(
+            color: isGreen ? Colors.green : Colors.red,
+            width: 2,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2405,10 +2355,18 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
               ),
             ),
             const SizedBox(height: 4),
-            _buildPriceRow('open'.tr, candle['open']!, Theme.of(context).colorScheme.onSurface),
+            _buildPriceRow(
+              'open'.tr,
+              candle['open']!,
+              Theme.of(context).colorScheme.onSurface,
+            ),
             _buildPriceRow('high'.tr, candle['high']!, Colors.green),
             _buildPriceRow('low'.tr, candle['low']!, Colors.red),
-            _buildPriceRow('close'.tr, candle['close']!, isGreen ? Colors.green : Colors.red),
+            _buildPriceRow(
+              'close'.tr,
+              candle['close']!,
+              isGreen ? Colors.green : Colors.red,
+            ),
             const SizedBox(height: 4),
             Text(
               isGreen ? '↗ ${'bullish'.tr}' : '↘ ${'bearish'.tr}',
@@ -2434,7 +2392,11 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
         ),
         Text(
           value.toStringAsFixed(5),
-          style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
@@ -2444,70 +2406,112 @@ class _InteractiveCandlestickChartState extends State<InteractiveCandlestickChar
 // Enhanced candlestick painter with MT5-like quality
 class CandlestickPainter extends CustomPainter {
   final List<Map<String, double>> candles;
-  
+
   CandlestickPainter(this.candles);
-  
+
   @override
   void paint(Canvas canvas, Size size) {
     if (candles.isEmpty) return;
-    
+
     final paint = Paint();
     final padding = 60.0; // More padding for professional look
     final availableWidth = size.width - (padding * 2);
     final availableHeight = size.height - (padding * 2);
-    
+
     // Calculate candle width with proper spacing
     final pixelPerCandleBase = availableWidth / candles.length;
     final candleSpacing = pixelPerCandleBase;
     final desiredBodyRatio = 0.42; // more gutter, cleaner visual at dense zoom
-    final candleWidth = (pixelPerCandleBase * desiredBodyRatio).clamp(1.0, 14.0);
-    
+    final candleWidth = (pixelPerCandleBase * desiredBodyRatio).clamp(
+      1.0,
+      14.0,
+    );
+
     // Find min and max values for proper scaling
     double minPrice = double.infinity;
     double maxPrice = double.negativeInfinity;
-    
+
     for (final candle in candles) {
-      minPrice = [minPrice, candle['low']!, candle['open']!, candle['close']!].reduce((a, b) => a < b ? a : b);
-      maxPrice = [maxPrice, candle['high']!, candle['open']!, candle['close']!].reduce((a, b) => a > b ? a : b);
+      minPrice = [
+        minPrice,
+        candle['low']!,
+        candle['open']!,
+        candle['close']!,
+      ].reduce((a, b) => a < b ? a : b);
+      maxPrice = [
+        maxPrice,
+        candle['high']!,
+        candle['open']!,
+        candle['close']!,
+      ].reduce((a, b) => a > b ? a : b);
     }
-    
+
     // Add some margin to the price range for better visualization
     final priceRange = maxPrice - minPrice;
     final priceMargin = priceRange * 0.05; // 5% margin for tighter view
     final adjustedMinPrice = minPrice - priceMargin;
     final adjustedMaxPrice = maxPrice + priceMargin;
     final adjustedPriceRange = adjustedMaxPrice - adjustedMinPrice;
-    
+
     final scaleY = availableHeight / adjustedPriceRange;
-    
+
     // Draw professional grid lines
-    _drawProfessionalGridLines(canvas, size, padding, adjustedMinPrice, adjustedMaxPrice, scaleY);
-    
+    _drawProfessionalGridLines(
+      canvas,
+      size,
+      padding,
+      adjustedMinPrice,
+      adjustedMaxPrice,
+      scaleY,
+    );
+
     // Draw price labels
-    _drawPriceLabels(canvas, size, padding, adjustedMinPrice, adjustedMaxPrice, scaleY);
-    
+    _drawPriceLabels(
+      canvas,
+      size,
+      padding,
+      adjustedMinPrice,
+      adjustedMaxPrice,
+      scaleY,
+    );
+
     // Draw candlesticks with MT5-like quality
     // If pixel spacing is too small, skip some candles to avoid clutter
     final int step = candleSpacing < 3.0 ? (3.0 / candleSpacing).ceil() : 1;
     for (int i = 0; i < candles.length; i += step) {
       final candle = candles[i];
-      final x = padding + (i * candleSpacing) + (candleSpacing - candleWidth) / 2;
-      
+      final x =
+          padding + (i * candleSpacing) + (candleSpacing - candleWidth) / 2;
+
       final isGreen = candle['close']! > candle['open']!;
-      final isDoji = (candle['close']! - candle['open']!).abs() < (adjustedPriceRange * 0.001);
-      
+      final isDoji =
+          (candle['close']! - candle['open']!).abs() <
+          (adjustedPriceRange * 0.001);
+
       // Convert prices to screen coordinates
-      final highY = padding + availableHeight - ((candle['high']! - adjustedMinPrice) * scaleY);
-      final lowY = padding + availableHeight - ((candle['low']! - adjustedMinPrice) * scaleY);
-      final openY = padding + availableHeight - ((candle['open']! - adjustedMinPrice) * scaleY);
-      final closeY = padding + availableHeight - ((candle['close']! - adjustedMinPrice) * scaleY);
-      
+      final highY =
+          padding +
+          availableHeight -
+          ((candle['high']! - adjustedMinPrice) * scaleY);
+      final lowY =
+          padding +
+          availableHeight -
+          ((candle['low']! - adjustedMinPrice) * scaleY);
+      final openY =
+          padding +
+          availableHeight -
+          ((candle['open']! - adjustedMinPrice) * scaleY);
+      final closeY =
+          padding +
+          availableHeight -
+          ((candle['close']! - adjustedMinPrice) * scaleY);
+
       // Ensure coordinates are within bounds
       final clampedHighY = highY.clamp(padding, padding + availableHeight);
       final clampedLowY = lowY.clamp(padding, padding + availableHeight);
       final clampedOpenY = openY.clamp(padding, padding + availableHeight);
       final clampedCloseY = closeY.clamp(padding, padding + availableHeight);
-      
+
       // Draw wick (high to low) with professional styling
       paint.strokeWidth = 1.0;
       paint.color = isGreen ? const Color(0xFF4CAF50) : const Color(0xFFF44336);
@@ -2516,24 +2520,30 @@ class CandlestickPainter extends CustomPainter {
         Offset(x + candleWidth / 2, clampedLowY),
         paint,
       );
-      
+
       // Draw body (open to close) with MT5-like appearance
-      final bodyTop = clampedOpenY < clampedCloseY ? clampedOpenY : clampedCloseY;
+      final bodyTop = clampedOpenY < clampedCloseY
+          ? clampedOpenY
+          : clampedCloseY;
       final bodyHeight = (clampedOpenY - clampedCloseY).abs();
-      
+
       if (bodyHeight > 0.5) {
         // Fill body with gradient-like effect
         paint.style = PaintingStyle.fill;
-        paint.color = isGreen ? const Color(0xFF4CAF50) : const Color(0xFFF44336);
+        paint.color = isGreen
+            ? const Color(0xFF4CAF50)
+            : const Color(0xFFF44336);
         canvas.drawRect(
           Rect.fromLTWH(x, bodyTop, candleWidth, bodyHeight),
           paint,
         );
-        
+
         // Draw body border with contrasting color
         paint.style = PaintingStyle.stroke;
         paint.strokeWidth = 0.5;
-        paint.color = isGreen ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
+        paint.color = isGreen
+            ? const Color(0xFF2E7D32)
+            : const Color(0xFFD32F2F);
         canvas.drawRect(
           Rect.fromLTWH(x, bodyTop, candleWidth, bodyHeight),
           paint,
@@ -2551,8 +2561,15 @@ class CandlestickPainter extends CustomPainter {
       }
     }
   }
-  
-  void _drawProfessionalGridLines(Canvas canvas, Size size, double padding, double minPrice, double maxPrice, double scaleY) {
+
+  void _drawProfessionalGridLines(
+    Canvas canvas,
+    Size size,
+    double padding,
+    double minPrice,
+    double maxPrice,
+    double scaleY,
+  ) {
     final paint = Paint()
       ..color = Colors.grey.withOpacity(0.2)
       ..strokeWidth = 0.5;
@@ -2585,8 +2602,15 @@ class CandlestickPainter extends CustomPainter {
       }
     }
   }
-  
-  void _drawPriceLabels(Canvas canvas, Size size, double padding, double minPrice, double maxPrice, double scaleY) {
+
+  void _drawPriceLabels(
+    Canvas canvas,
+    Size size,
+    double padding,
+    double minPrice,
+    double maxPrice,
+    double scaleY,
+  ) {
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
     final availableHeight = size.height - (padding * 2);
     final priceStep = (maxPrice - minPrice) / 8;
@@ -2598,55 +2622,24 @@ class CandlestickPainter extends CustomPainter {
         textPainter.text = const TextSpan();
         textPainter.text = TextSpan(
           text: priceText,
-          style: const TextStyle(color: Colors.grey, fontSize: 10, fontFamily: 'monospace'),
+          style: const TextStyle(
+            color: Colors.grey,
+            fontSize: 10,
+            fontFamily: 'monospace',
+          ),
         );
         textPainter.layout();
         textPainter.paint(
           canvas,
-          Offset(size.width - padding - textPainter.width - 5, y - textPainter.height / 2),
+          Offset(
+            size.width - padding - textPainter.width - 5,
+            y - textPainter.height / 2,
+          ),
         );
       }
     }
   }
-  
-  void _drawGridLines(Canvas canvas, Size size, double padding, double minPrice, double maxPrice, double scaleY) {
-    final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.3)
-      ..strokeWidth = 0.5;
-    
-    final availableHeight = size.height - (padding * 2);
-    
-    // Draw horizontal grid lines
-    final priceStep = (maxPrice - minPrice) / 5;
-    for (int i = 0; i <= 5; i++) {
-      final price = minPrice + (priceStep * i);
-      final y = padding + availableHeight - ((price - minPrice) * scaleY);
-      
-      if (y >= padding && y <= padding + availableHeight) {
-        canvas.drawLine(
-          Offset(padding, y),
-          Offset(size.width - padding, y),
-          paint,
-        );
-      }
-    }
-    
-    // Draw vertical grid lines
-    final candleSpacing = (size.width - (padding * 2)) / candles.length;
-    for (int i = 0; i <= candles.length; i += (candles.length / 10).ceil()) {
-      final x = padding + (i * candleSpacing);
-      if (x >= padding && x <= size.width - padding) {
-        canvas.drawLine(
-          Offset(x, padding),
-          Offset(x, size.height - padding),
-          paint,
-        );
-      }
-    }
-  }
-  
-  
-  
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
@@ -2668,7 +2661,7 @@ class InteractiveCandlestickPainter extends CustomPainter {
   final Color textColor;
   final Color crosshairColor;
   final Color crosshairDotColor;
-  
+
   InteractiveCandlestickPainter({
     required this.candles,
     required this.scale,
@@ -2686,62 +2679,92 @@ class InteractiveCandlestickPainter extends CustomPainter {
     required this.crosshairColor,
     required this.crosshairDotColor,
   });
-  
+
   @override
   void paint(Canvas canvas, Size size) {
     if (candles.isEmpty) return;
-    
+
     final paint = Paint();
     const leftPadding = 40.0;
     const rightAxisWidth = 56.0; // reserve space for Y-axis labels
     const padding = 40.0; // top/bottom padding
     final availableWidth = size.width - leftPadding - rightAxisWidth;
     final availableHeight = size.height - (padding * 2);
-    
+
     // Apply transformations - scale first, then translate
     canvas.save();
     canvas.scale(scale);
     canvas.translate(panX / scale, panY / scale);
-    
+
     // Calculate candle width with proper spacing - ensure good visibility
     final pixelPerCandleBase = availableWidth / candles.length;
     final candleSpacing = pixelPerCandleBase;
     final desiredBodyRatio = 0.42; // more gutter, cleaner visual at dense zoom
-    final candleWidth = (pixelPerCandleBase * desiredBodyRatio).clamp(1.0, 14.0);
-    
+    final candleWidth = (pixelPerCandleBase * desiredBodyRatio).clamp(
+      1.0,
+      14.0,
+    );
+
     // Find min and max values for proper scaling
     double minPrice = double.infinity;
     double maxPrice = double.negativeInfinity;
-    
+
     for (final candle in candles) {
-      minPrice = [minPrice, candle['low']!, candle['open']!, candle['close']!].reduce((a, b) => a < b ? a : b);
-      maxPrice = [maxPrice, candle['high']!, candle['open']!, candle['close']!].reduce((a, b) => a > b ? a : b);
+      minPrice = [
+        minPrice,
+        candle['low']!,
+        candle['open']!,
+        candle['close']!,
+      ].reduce((a, b) => a < b ? a : b);
+      maxPrice = [
+        maxPrice,
+        candle['high']!,
+        candle['open']!,
+        candle['close']!,
+      ].reduce((a, b) => a > b ? a : b);
     }
-    
+
     // Add some margin to the price range for better visualization
     final priceRange = maxPrice - minPrice;
     final priceMargin = priceRange * 0.1; // 10% margin
     final adjustedMinPrice = minPrice - priceMargin;
     final adjustedMaxPrice = maxPrice + priceMargin;
     final adjustedPriceRange = adjustedMaxPrice - adjustedMinPrice;
-    
+
     final scaleY = availableHeight / adjustedPriceRange;
-    
+
     // Draw professional grid lines
-    _drawProfessionalGridLines(canvas, size, padding, adjustedMinPrice, adjustedMaxPrice, scaleY);
-    
+    _drawProfessionalGridLines(
+      canvas,
+      size,
+      padding,
+      adjustedMinPrice,
+      adjustedMaxPrice,
+      scaleY,
+    );
+
     // Draw price labels
-    _drawPriceLabels(canvas, size, padding, adjustedMinPrice, adjustedMaxPrice, scaleY);
-    
+    _drawPriceLabels(
+      canvas,
+      size,
+      padding,
+      adjustedMinPrice,
+      adjustedMaxPrice,
+      scaleY,
+    );
+
     // Draw candlesticks with MT5-like quality
     for (int i = 0; i < candles.length; i++) {
       final candle = candles[i];
-      final x = leftPadding + (i * candleSpacing) + (candleSpacing - candleWidth) / 2;
-      
+      final x =
+          leftPadding + (i * candleSpacing) + (candleSpacing - candleWidth) / 2;
+
       final isGreen = candle['close']! > candle['open']!;
-      final isDoji = (candle['close']! - candle['open']!).abs() < (adjustedPriceRange * 0.001);
+      final isDoji =
+          (candle['close']! - candle['open']!).abs() <
+          (adjustedPriceRange * 0.001);
       final isSelected = selectedCandleIndex == i;
-      
+
       // Highlight selected candle with professional styling
       if (isSelected) {
         paint.color = Colors.amber.withOpacity(0.2);
@@ -2751,19 +2774,31 @@ class InteractiveCandlestickPainter extends CustomPainter {
           paint,
         );
       }
-      
+
       // Convert prices to screen coordinates
-      final highY = padding + availableHeight - ((candle['high']! - adjustedMinPrice) * scaleY);
-      final lowY = padding + availableHeight - ((candle['low']! - adjustedMinPrice) * scaleY);
-      final openY = padding + availableHeight - ((candle['open']! - adjustedMinPrice) * scaleY);
-      final closeY = padding + availableHeight - ((candle['close']! - adjustedMinPrice) * scaleY);
-      
+      final highY =
+          padding +
+          availableHeight -
+          ((candle['high']! - adjustedMinPrice) * scaleY);
+      final lowY =
+          padding +
+          availableHeight -
+          ((candle['low']! - adjustedMinPrice) * scaleY);
+      final openY =
+          padding +
+          availableHeight -
+          ((candle['open']! - adjustedMinPrice) * scaleY);
+      final closeY =
+          padding +
+          availableHeight -
+          ((candle['close']! - adjustedMinPrice) * scaleY);
+
       // Ensure coordinates are within bounds
       final clampedHighY = highY.clamp(padding, padding + availableHeight);
       final clampedLowY = lowY.clamp(padding, padding + availableHeight);
       final clampedOpenY = openY.clamp(padding, padding + availableHeight);
       final clampedCloseY = closeY.clamp(padding, padding + availableHeight);
-      
+
       // Draw wick (high to low) with professional styling
       paint.strokeWidth = isSelected ? 2.0 : (candleSpacing < 2.0 ? 0.8 : 1.0);
       paint.color = isGreen ? const Color(0xFF4CAF50) : const Color(0xFFF44336);
@@ -2772,24 +2807,30 @@ class InteractiveCandlestickPainter extends CustomPainter {
         Offset(x + candleWidth / 2, clampedLowY),
         paint,
       );
-      
+
       // Draw body (open to close) with MT5-like appearance
-      final bodyTop = clampedOpenY < clampedCloseY ? clampedOpenY : clampedCloseY;
+      final bodyTop = clampedOpenY < clampedCloseY
+          ? clampedOpenY
+          : clampedCloseY;
       final bodyHeight = (clampedOpenY - clampedCloseY).abs();
-      
+
       if (bodyHeight > 0.5) {
         // Fill body with professional colors
         paint.style = PaintingStyle.fill;
-        paint.color = isGreen ? const Color(0xFF4CAF50) : const Color(0xFFF44336);
+        paint.color = isGreen
+            ? const Color(0xFF4CAF50)
+            : const Color(0xFFF44336);
         canvas.drawRect(
           Rect.fromLTWH(x, bodyTop, candleWidth, bodyHeight),
           paint,
         );
-        
+
         // Draw body border with contrasting color
         paint.style = PaintingStyle.stroke;
         paint.strokeWidth = isSelected ? 1.5 : 0.5;
-        paint.color = isGreen ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F);
+        paint.color = isGreen
+            ? const Color(0xFF2E7D32)
+            : const Color(0xFFD32F2F);
         canvas.drawRect(
           Rect.fromLTWH(x, bodyTop, candleWidth, bodyHeight),
           paint,
@@ -2809,21 +2850,48 @@ class InteractiveCandlestickPainter extends CustomPainter {
 
     // Draw Moving Averages (thin lines in dense modes)
     if (showFastMA) {
-      _drawMovingAverage(canvas, size, padding, adjustedMinPrice, scaleY, fastMAPeriod, const Color(0xFF2196F3), candleSpacing);
+      _drawMovingAverage(
+        canvas,
+        size,
+        padding,
+        adjustedMinPrice,
+        scaleY,
+        fastMAPeriod,
+        const Color(0xFF2196F3),
+        candleSpacing,
+      );
     }
     if (showSlowMA) {
-      _drawMovingAverage(canvas, size, padding, adjustedMinPrice, scaleY, slowMAPeriod, const Color(0xFFFFC107), candleSpacing);
+      _drawMovingAverage(
+        canvas,
+        size,
+        padding,
+        adjustedMinPrice,
+        scaleY,
+        slowMAPeriod,
+        const Color(0xFFFFC107),
+        candleSpacing,
+      );
     }
-    
+
     // Draw crosshair
     if (crosshairPosition != null) {
       _drawCrosshair(canvas, size, crosshairPosition!);
     }
-    
+
     canvas.restore();
   }
 
-  void _drawMovingAverage(Canvas canvas, Size size, double padding, double adjustedMinPrice, double scaleY, int period, Color color, double candleSpacing) {
+  void _drawMovingAverage(
+    Canvas canvas,
+    Size size,
+    double padding,
+    double adjustedMinPrice,
+    double scaleY,
+    int period,
+    Color color,
+    double candleSpacing,
+  ) {
     if (candles.length < period || period <= 1) return;
     final availableWidth = size.width - (padding * 2);
     final candleSpacing = availableWidth / candles.length;
@@ -2838,7 +2906,10 @@ class InteractiveCandlestickPainter extends CustomPainter {
       }
       final ma = sum / period;
       final x = padding + (i * candleSpacing) + (candleSpacing / 2);
-      final y = padding + (size.height - (padding * 2)) - ((ma - adjustedMinPrice) * scaleY);
+      final y =
+          padding +
+          (size.height - (padding * 2)) -
+          ((ma - adjustedMinPrice) * scaleY);
       if (!hasMoved) {
         path.moveTo(x, y);
         hasMoved = true;
@@ -2852,20 +2923,27 @@ class InteractiveCandlestickPainter extends CustomPainter {
       ..color = color.withOpacity(0.9);
     canvas.drawPath(path, paint);
   }
-  
-  void _drawProfessionalGridLines(Canvas canvas, Size size, double padding, double minPrice, double maxPrice, double scaleY) {
+
+  void _drawProfessionalGridLines(
+    Canvas canvas,
+    Size size,
+    double padding,
+    double minPrice,
+    double maxPrice,
+    double scaleY,
+  ) {
     final paint = Paint()
       ..color = gridColor.withOpacity(0.2)
       ..strokeWidth = 0.5;
-    
+
     final availableHeight = size.height - (padding * 2);
-    
+
     // Draw horizontal grid lines with better spacing
     final priceStep = (maxPrice - minPrice) / 8; // More grid lines
     for (int i = 0; i <= 8; i++) {
       final price = minPrice + (priceStep * i);
       final y = padding + availableHeight - ((price - minPrice) * scaleY);
-      
+
       if (y >= padding && y <= padding + availableHeight) {
         // Main grid lines
         paint.color = Colors.grey.withOpacity(0.3);
@@ -2877,7 +2955,7 @@ class InteractiveCandlestickPainter extends CustomPainter {
         );
       }
     }
-    
+
     // Draw vertical grid lines
     final candleSpacing = (size.width - (padding * 2)) / candles.length;
     for (int i = 0; i <= candles.length; i += (candles.length / 12).ceil()) {
@@ -2893,19 +2971,24 @@ class InteractiveCandlestickPainter extends CustomPainter {
       }
     }
   }
-  
-  void _drawPriceLabels(Canvas canvas, Size size, double padding, double minPrice, double maxPrice, double scaleY) {
-    final textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
-    
+
+  void _drawPriceLabels(
+    Canvas canvas,
+    Size size,
+    double padding,
+    double minPrice,
+    double maxPrice,
+    double scaleY,
+  ) {
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+
     final availableHeight = size.height - (padding * 2);
     final priceStep = (maxPrice - minPrice) / 8;
-    
+
     for (int i = 0; i <= 8; i++) {
       final price = minPrice + (priceStep * i);
       final y = padding + availableHeight - ((price - minPrice) * scaleY);
-      
+
       if (y >= padding && y <= padding + availableHeight) {
         final priceText = price.toStringAsFixed(5);
         textPainter.text = TextSpan(
@@ -2917,87 +3000,53 @@ class InteractiveCandlestickPainter extends CustomPainter {
           ),
         );
         textPainter.layout();
-        
+
         // Position text on the right side
         textPainter.paint(
           canvas,
-          Offset(size.width - padding - textPainter.width - 5, y - textPainter.height / 2),
+          Offset(
+            size.width - padding - textPainter.width - 5,
+            y - textPainter.height / 2,
+          ),
         );
       }
     }
   }
-  
-  void _drawGridLines(Canvas canvas, Size size, double padding, double minPrice, double maxPrice, double scaleY) {
-    final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.3)
-      ..strokeWidth = 0.5;
-    
-    final availableHeight = size.height - (padding * 2);
-    
-    // Draw horizontal grid lines
-    final priceStep = (maxPrice - minPrice) / 5;
-    for (int i = 0; i <= 5; i++) {
-      final price = minPrice + (priceStep * i);
-      final y = padding + availableHeight - ((price - minPrice) * scaleY);
-      
-      if (y >= padding && y <= padding + availableHeight) {
-        canvas.drawLine(
-          Offset(padding, y),
-          Offset(size.width - padding, y),
-          paint,
-        );
-      }
-    }
-    
-    // Draw vertical grid lines
-    final candleSpacing = (size.width - (padding * 2)) / candles.length;
-    for (int i = 0; i <= candles.length; i += (candles.length / 10).ceil()) {
-      final x = padding + (i * candleSpacing);
-      if (x >= padding && x <= size.width - padding) {
-        canvas.drawLine(
-          Offset(x, padding),
-          Offset(x, size.height - padding),
-          paint,
-        );
-      }
-    }
-  }
-  
+
   void _drawCrosshair(Canvas canvas, Size size, Offset position) {
     final paint = Paint()
       ..color = crosshairColor.withOpacity(0.8)
       ..strokeWidth = 1.0;
-    
+
     // Draw vertical line
     canvas.drawLine(
       Offset(position.dx, 0),
       Offset(position.dx, size.height),
       paint,
     );
-    
+
     // Draw horizontal line
     canvas.drawLine(
       Offset(0, position.dy),
       Offset(size.width, position.dy),
       paint,
     );
-    
+
     // Draw center dot
     paint.color = crosshairDotColor;
     paint.style = PaintingStyle.fill;
     canvas.drawCircle(position, 3, paint);
   }
-  
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     if (oldDelegate is! InteractiveCandlestickPainter) return true;
-    
+
     return oldDelegate.candles != candles ||
-           oldDelegate.scale != scale ||
-           oldDelegate.panX != panX ||
-           oldDelegate.panY != panY ||
-           oldDelegate.crosshairPosition != crosshairPosition ||
-           oldDelegate.selectedCandleIndex != selectedCandleIndex;
+        oldDelegate.scale != scale ||
+        oldDelegate.panX != panX ||
+        oldDelegate.panY != panY ||
+        oldDelegate.crosshairPosition != crosshairPosition ||
+        oldDelegate.selectedCandleIndex != selectedCandleIndex;
   }
 }
-

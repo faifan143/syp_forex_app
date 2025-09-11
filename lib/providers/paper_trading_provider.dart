@@ -52,13 +52,11 @@ class PaperTradingProvider extends GetxController {
     _isSimulationRunning = true;
     _marketService.startSimulation();
     
-    // Subscribe to price updates (but dashboard data takes priority)
+    // Subscribe to price updates - allow simulation to continue updating all prices
     _priceSubscription = _marketService.priceStream.listen((prices) {
-      // Only update prices that aren't already set by dashboard data
+      // Update all prices from simulation (simulation continues running)
       for (String symbol in prices.keys) {
-        if (!_currentPrices.containsKey(symbol)) {
-          _currentPrices[symbol] = prices[symbol]!;
-        }
+        _currentPrices[symbol] = prices[symbol]!;
       }
       _updatePositionPrices();
       update();
@@ -321,8 +319,10 @@ class PaperTradingProvider extends GetxController {
     // Update the market simulation service with real market data as base prices
     _marketService.updateBasePrices(basePrices);
     
-    // Always update current prices with dashboard data (don't rely on simulation)
-    _currentPrices = Map.from(basePrices);
+    // Update current prices with dashboard data but allow simulation to continue
+    for (String symbol in basePrices.keys) {
+      _currentPrices[symbol] = basePrices[symbol]!;
+    }
     _updatePositionPrices();
     update();
   }
@@ -335,6 +335,8 @@ class PaperTradingProvider extends GetxController {
     required double price,
     double? stopLoss,
     double? takeProfit,
+    double? stopLossDollars,
+    double? takeProfitDollars,
   }) async {
     _setLoading(true);
     
@@ -351,6 +353,36 @@ class PaperTradingProvider extends GetxController {
         currentPrice = price;
       }
       
+      // Convert dollar amounts to price levels if provided
+      double? finalStopLoss = stopLoss;
+      double? finalTakeProfit = takeProfit;
+      
+      if (stopLossDollars != null && stopLossDollars > 0) {
+        // Calculate price level for stop loss based on dollar amount
+        final pipValue = _calculatePipValue(symbol, currentPrice, volume);
+        final stopLossPips = stopLossDollars / pipValue;
+        final pipSize = _getPipSize(symbol);
+        
+        if (type == PositionType.buy) {
+          finalStopLoss = currentPrice - (stopLossPips * pipSize);
+        } else {
+          finalStopLoss = currentPrice + (stopLossPips * pipSize);
+        }
+      }
+      
+      if (takeProfitDollars != null && takeProfitDollars > 0) {
+        // Calculate price level for take profit based on dollar amount
+        final pipValue = _calculatePipValue(symbol, currentPrice, volume);
+        final takeProfitPips = takeProfitDollars / pipValue;
+        final pipSize = _getPipSize(symbol);
+        
+        if (type == PositionType.buy) {
+          finalTakeProfit = currentPrice + (takeProfitPips * pipSize);
+        } else {
+          finalTakeProfit = currentPrice - (takeProfitPips * pipSize);
+        }
+      }
+
       final newPosition = Position(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         symbol: symbol,
@@ -359,8 +391,8 @@ class PaperTradingProvider extends GetxController {
         openPrice: currentPrice,
         currentPrice: currentPrice,
         openTime: DateTime.now(),
-        stopLoss: stopLoss ?? 0.0,
-        takeProfit: takeProfit ?? 0.0,
+        stopLoss: finalStopLoss ?? 0.0,
+        takeProfit: finalTakeProfit ?? 0.0,
         comment: '',
       );
 
@@ -577,5 +609,21 @@ class PaperTradingProvider extends GetxController {
     
     // Fallback to simulation service
     return _marketService.getAskPriceRealistic(symbol);
+  }
+
+  // Calculate pip value for a given symbol, price, and volume
+  double _calculatePipValue(String symbol, double price, double volume) {
+    final pipSize = _getPipSize(symbol);
+    final contractSize = 100000.0; // Standard lot size
+    final pipValue = (pipSize / price) * contractSize * volume;
+    return pipValue;
+  }
+
+  // Get pip size for different currency pairs
+  double _getPipSize(String symbol) {
+    if (symbol.contains('JPY')) {
+      return 0.01; // 0.01 for JPY pairs
+    }
+    return 0.0001; // 0.0001 for most pairs
   }
 }

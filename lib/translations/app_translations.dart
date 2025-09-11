@@ -541,6 +541,16 @@ class AppTranslations extends Translations {
       'timeHorizon2To4Hours': '2-4 hours',
       'timeHorizon4To8Hours': '4-8 hours',
       'timeHorizon8To24Hours': '8-24 hours',
+      
+      // AI Recommender Real Data Analysis
+      'tomorrowTrendUp': 'Tomorrow trend is upward',
+      'tomorrowTrendDown': 'Tomorrow trend is downward',
+      'weekTrendUp': 'Weekly trend supports upward movement',
+      'weekTrendDown': 'Weekly trend supports downward movement',
+      'strongUpwardMomentum': 'Strong upward momentum detected',
+      'strongDownwardMomentum': 'Strong downward momentum detected',
+      'technicalConfirmsUpward': 'Technical analysis confirms upward trend',
+      'technicalConfirmsDownward': 'Technical analysis confirms downward trend',
     },
     'ar': {
       // App Title
@@ -1080,6 +1090,16 @@ class AppTranslations extends Translations {
       'timeHorizon2To4Hours': '2-4 ساعات',
       'timeHorizon4To8Hours': '4-8 ساعات',
       'timeHorizon8To24Hours': '8-24 ساعة',
+      
+      // AI Recommender Real Data Analysis
+      'tomorrowTrendUp': 'اتجاه الغد صاعد',
+      'tomorrowTrendDown': 'اتجاه الغد هابط',
+      'weekTrendUp': 'الاتجاه الأسبوعي يدعم الحركة الصاعدة',
+      'weekTrendDown': 'الاتجاه الأسبوعي يدعم الحركة الهابطة',
+      'strongUpwardMomentum': 'تم اكتشاف زخم صاعد قوي',
+      'strongDownwardMomentum': 'تم اكتشاف زخم هابط قوي',
+      'technicalConfirmsUpward': 'التحليل الفني يؤكد الاتجاه الصاعد',
+      'technicalConfirmsDownward': 'التحليل الفني يؤكد الاتجاه الهابط',
     },
   };
 }
