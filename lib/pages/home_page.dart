@@ -642,7 +642,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'محصلة الأسبوع',
+                                'weeklySummary'.tr,
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: Theme.of(context).colorScheme.primary,
