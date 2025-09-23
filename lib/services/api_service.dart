@@ -22,9 +22,7 @@ class ApiService {
     developer.log(logMessage, name: 'SYP_Forex_App');
     print(logMessage);
     
-    if (data != null) {
-      print('[$_logTag] Data: ${json.encode(data)}');
-    }
+
   }
 
   // Get current rates for a specific city

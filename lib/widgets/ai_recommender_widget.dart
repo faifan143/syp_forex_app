@@ -48,13 +48,14 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    
+
     _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
 
     // Generate initial recommendation
     _generateRecommendation();
@@ -65,11 +66,12 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
     super.didUpdateWidget(oldWidget);
     // Only regenerate recommendation if symbol changes or if it's a new day
     final now = DateTime.now();
-    final isNewDay = _lastRecommendationDate == null || 
-                     now.day != _lastRecommendationDate!.day ||
-                     now.month != _lastRecommendationDate!.month ||
-                     now.year != _lastRecommendationDate!.year;
-    
+    final isNewDay =
+        _lastRecommendationDate == null ||
+        now.day != _lastRecommendationDate!.day ||
+        now.month != _lastRecommendationDate!.month ||
+        now.year != _lastRecommendationDate!.year;
+
     if (oldWidget.symbol != widget.symbol || isNewDay) {
       _lastSymbol = widget.symbol;
       _generateRecommendation();
@@ -94,12 +96,13 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
     _fadeController.forward();
 
     try {
-      final recommendation = await AIRecommenderService().generateRecommendation(
-        symbol: widget.symbol,
-        currentPrice: widget.currentPrice,
-        recentCandles: widget.recentCandles.cast<Candlestick>(),
-        currencyData: widget.currencyData,
-      );
+      final recommendation = await AIRecommenderService()
+          .generateRecommendation(
+            symbol: widget.symbol,
+            currentPrice: widget.currentPrice,
+            recentCandles: widget.recentCandles.cast<Candlestick>(),
+            currencyData: widget.currencyData,
+          );
 
       setState(() {
         _recommendation = recommendation;
@@ -158,7 +161,8 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
                 _buildHeader(),
                 const SizedBox(height: 16),
                 if (_isLoading) _buildLoadingWidget(),
-                if (_recommendation != null && !_isLoading) _buildRecommendationWidget(),
+                if (_recommendation != null && !_isLoading)
+                  _buildRecommendationWidget(),
               ],
             ),
           ),
@@ -195,7 +199,6 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
-             
             ],
           ),
         ),
@@ -245,30 +248,22 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
 
     return FadeTransition(
       opacity: _fadeAnimation,
-      child: Column(
-        children: [
-          _buildRecommendationCard(),
-        ],
-      ),
+      child: Column(children: [_buildRecommendationCard()]),
     );
   }
 
   Widget _buildRecommendationCard() {
     final rec = _recommendation!;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: rec.typeColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: rec.typeColor.withOpacity(0.3),
-          width: 2,
-        ),
+        border: Border.all(color: rec.typeColor.withOpacity(0.3), width: 2),
       ),
       child: Row(
         children: [
-   
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -276,7 +271,11 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              rec.isBuy ? Icons.trending_up : rec.isSell ? Icons.trending_down : Icons.pause,
+              rec.isBuy
+                  ? Icons.trending_up
+                  : rec.isSell
+                  ? Icons.trending_down
+                  : Icons.pause,
               color: Colors.white,
               size: 24,
             ),
@@ -294,34 +293,6 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
                     color: rec.typeColor,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: rec.confidenceColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        rec.confidenceDisplayName,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${(rec.confidenceScore * 100).toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -329,17 +300,16 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                rec.formattedExpectedChange,
+                rec.simplifiedTimeHorizon,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: rec.expectedPriceChange >= 0 
-                    ? Theme.of(context).colorScheme.primary 
-                    : Theme.of(context).colorScheme.error,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
+              const SizedBox(height: 4),
               Text(
-                rec.timeHorizon,
+                rec.confidenceDisplayName,
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -347,8 +317,6 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
               ),
             ],
           ),
-       
-
         ],
       ),
     );
@@ -356,14 +324,13 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
 
   Widget _buildDetailsSection() {
     final rec = _recommendation!;
-    
+
     return Column(
       children: [
         const SizedBox(height: 12),
         _buildDetailRow('targetPrice'.tr, rec.formattedTargetPrice),
         _buildDetailRow('stopLossPrice'.tr, rec.formattedStopLossPrice),
         _buildDetailRow('riskRewardRatio'.tr, rec.formattedRiskRewardRatio),
-    
       ],
     );
   }
@@ -401,7 +368,7 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
 
   Widget _buildKeyFactorsSection() {
     final rec = _recommendation!;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -417,7 +384,9 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: rec.keyFactors.map((factor) => _buildFactorChip(factor)).toList(),
+          children: rec.keyFactors
+              .map((factor) => _buildFactorChip(factor))
+              .toList(),
         ),
       ],
     );
@@ -425,7 +394,7 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
 
   Widget _buildTechnicalIndicatorsSection() {
     final rec = _recommendation!;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -441,7 +410,9 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: rec.technicalIndicators.map((indicator) => _buildIndicatorChip(indicator)).toList(),
+          children: rec.technicalIndicators
+              .map((indicator) => _buildIndicatorChip(indicator))
+              .toList(),
         ),
       ],
     );
@@ -449,7 +420,7 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
 
   Widget _buildFundamentalFactorsSection() {
     final rec = _recommendation!;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -465,7 +436,9 @@ class _AIRecommenderWidgetState extends State<AIRecommenderWidget>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: rec.fundamentalFactors.map((factor) => _buildFactorChip(factor)).toList(),
+          children: rec.fundamentalFactors
+              .map((factor) => _buildFactorChip(factor))
+              .toList(),
         ),
       ],
     );

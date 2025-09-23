@@ -11,7 +11,6 @@ enum ConfidenceLevel {
   low,
   medium,
   high,
-  veryHigh,
 }
 
 class AIRecommendation {
@@ -127,8 +126,6 @@ class AIRecommendation {
         return 'medium'.tr;
       case ConfidenceLevel.high:
         return 'high'.tr;
-      case ConfidenceLevel.veryHigh:
-        return 'veryHigh'.tr;
     }
   }
 
@@ -150,16 +147,25 @@ class AIRecommendation {
       case ConfidenceLevel.medium:
         return Colors.orange[300]!;
       case ConfidenceLevel.high:
-        return Colors.blue[300]!;
-      case ConfidenceLevel.veryHigh:
         return Colors.green[300]!;
     }
   }
 
   String get formattedExpectedChange => 
-      '${expectedPriceChangePercent >= 0 ? '+' : ''}${expectedPriceChangePercent.toStringAsFixed(2)}%';
+      '${expectedPriceChangePercent >= 0 ? '+' : ''}${expectedPriceChangePercent.toStringAsFixed(1)}%';
 
   String get formattedTargetPrice => targetPrice.toStringAsFixed(4);
   String get formattedStopLossPrice => stopLossPrice.toStringAsFixed(4);
-  String get formattedRiskRewardRatio => riskRewardRatio.toStringAsFixed(2);
+  String get formattedRiskRewardRatio => riskRewardRatio.toStringAsFixed(1);
+  
+  // Simplified time horizon getter
+  String get simplifiedTimeHorizon {
+    if (timeHorizon.contains('1') || timeHorizon.contains('2')) {
+      return 'shortTerm'.tr;
+    } else if (timeHorizon.contains('4') || timeHorizon.contains('8')) {
+      return 'mediumTerm'.tr;
+    } else {
+      return 'longTerm'.tr;
+    }
+  }
 }

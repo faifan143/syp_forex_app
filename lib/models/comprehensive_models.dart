@@ -1,118 +1,23 @@
-class ComprehensiveResponse {
-  final Map<String, CityRate> cityRates;
-  final List<Currency> currencies;
-  final DamascusPrediction damascusPrediction;
-  final OHLCV ohlcv;
-
-  ComprehensiveResponse({
-    required this.cityRates,
-    required this.currencies,
-    required this.damascusPrediction,
-    required this.ohlcv,
-  });
-
-  factory ComprehensiveResponse.fromJson(Map<String, dynamic> json) {
-    Map<String, CityRate> parsedCityRates = {};
-    if (json['city_rates'] != null) {
-      (json['city_rates'] as Map<String, dynamic>).forEach((key, value) {
-        parsedCityRates[key] = CityRate.fromJson(value);
-      });
-    }
-
-    return ComprehensiveResponse(
-      cityRates: parsedCityRates,
-      currencies: (json['currencies'] as List? ?? [])
-          .map((currency) => Currency.fromJson(currency))
-          .toList(),
-      damascusPrediction: json['damascus_prediction'] != null
-          ? DamascusPrediction.fromJson(json['damascus_prediction'])
-          : DamascusPrediction(ask: 0, bid: 0),
-      ohlcv: json['ohlcv'] != null
-          ? OHLCV.fromJson(json['ohlcv'])
-          : OHLCV(close: 0, high: 0, low: 0, open: 0, volume: 0),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    Map<String, dynamic> cityRatesJson = {};
-    cityRates.forEach((key, value) {
-      cityRatesJson[key] = value.toJson();
-    });
-
-    return {
-      'city_rates': cityRatesJson,
-      'currencies': currencies.map((currency) => currency.toJson()).toList(),
-      'damascus_prediction': damascusPrediction.toJson(),
-      'ohlcv': ohlcv.toJson(),
-    };
-  }
-
-  // Convenience getters
-  List<String> get availableCities => cityRates.keys.toList();
-  Currency? getCurrencyByName(String name) {
-    try {
-      return currencies.firstWhere((currency) => currency.name == name);
-    } catch (e) {
-      return null;
-    }
-  }
-}
-
-class CityRate {
-  final int ask;
-  final int bid;
-
-  CityRate({required this.ask, required this.bid});
-
-  factory CityRate.fromJson(Map<String, dynamic> json) {
-    return CityRate(
-      ask: (json['ask'] ?? 0).toInt(),
-      bid: (json['bid'] ?? 0).toInt(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {'ask': ask, 'bid': bid};
-  }
-
-  // Convenience getters
-  double get mid => (ask + bid) / 2;
-  int get spread => bid - ask;
-  String get formattedAsk => ask.toString();
-  String get formattedBid => bid.toString();
-  String get formattedMid => mid.toStringAsFixed(1);
-}
-
-class Currency {
+class DamascusPrediction {
   final double ask;
   final double bid;
-  final double change;
-  final double changePercentage;
-  final double mid;
-  final String name;
-  final PreviousRates? previousRates;
 
-  Currency({
+  const DamascusPrediction({
     required this.ask,
     required this.bid,
-    required this.change,
-    required this.changePercentage,
-    required this.mid,
-    required this.name,
-    this.previousRates,
   });
 
-  factory Currency.fromJson(Map<String, dynamic> json) {
-    return Currency(
-      ask: (json['ask'] ?? 0.0).toDouble(),
-      bid: (json['bid'] ?? 0.0).toDouble(),
-      change: (json['change'] ?? 0.0).toDouble(),
-      changePercentage: (json['change_percentage'] ?? 0.0).toDouble(),
-      mid: (json['mid'] ?? 0.0).toDouble(),
-      name: json['name'] ?? '',
-      previousRates: json['previous_rates'] != null
-          ? PreviousRates.fromJson(json['previous_rates'])
-          : null,
+  // Computed properties
+  double get mid => (ask + bid) / 2;
+  double get spread => ask - bid;
+  String get formattedAsk => ask.toStringAsFixed(2);
+  String get formattedBid => bid.toStringAsFixed(2);
+  String get formattedMid => mid.toStringAsFixed(2);
+
+  factory DamascusPrediction.fromJson(Map<String, dynamic> json) {
+    return DamascusPrediction(
+      ask: (json['ask'] as num).toDouble(),
+      bid: (json['bid'] as num).toDouble(),
     );
   }
 
@@ -120,132 +25,91 @@ class Currency {
     return {
       'ask': ask,
       'bid': bid,
-      'change': change,
-      'change_percentage': changePercentage,
-      'mid': mid,
-      'name': name,
-      'previous_rates': previousRates?.toJson(),
     };
   }
-
-  // Convenience getters
-  bool get isPositiveChange => change > 0;
-  bool get isNegativeChange => change < 0;
-  double get spread => bid - ask;
-  String get formattedAsk => ask.toString();
-  String get formattedBid => bid.toString();
-  String get formattedMid => mid.toStringAsFixed(1);
-  String get formattedChange => change > 0 ? '+$change' : change.toString();
-  String get formattedChangePercentage => changePercentage > 0
-      ? '+${changePercentage.toStringAsFixed(2)}%'
-      : '${changePercentage.toStringAsFixed(2)}%';
 }
 
-class DamascusPrediction {
-  final int ask;
-  final int bid;
+class CurrencyData {
+  final String name;
+  final double ask;
+  final double bid;
+  final double mid;
+  final double change;
+  final double changePercentage;
+  final PreviousRates? previousRates;
+  final String dataSource;
 
-  DamascusPrediction({required this.ask, required this.bid});
-
-  factory DamascusPrediction.fromJson(Map<String, dynamic> json) {
-    return DamascusPrediction(
-      ask: (json['ask'] ?? 0).toInt(),
-      bid: (json['bid'] ?? 0).toInt(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {'ask': ask, 'bid': bid};
-  }
-
-  // Convenience getters
-  double get mid => (ask + bid) / 2;
-  int get spread => bid - ask;
-  String get formattedAsk => ask.toString();
-  String get formattedBid => bid.toString();
-  String get formattedMid => mid.toStringAsFixed(1);
-}
-
-class OHLCV {
-  final double close;
-  final double high;
-  final double low;
-  final double open;
-  final int volume;
-
-  OHLCV({
-    required this.close,
-    required this.high,
-    required this.low,
-    required this.open,
-    required this.volume,
+  const CurrencyData({
+    required this.name,
+    required this.ask,
+    required this.bid,
+    required this.mid,
+    required this.change,
+    required this.changePercentage,
+    this.previousRates,
+    required this.dataSource,
   });
 
-  factory OHLCV.fromJson(Map<String, dynamic> json) {
-    return OHLCV(
-      close: (json['close'] ?? 0.0).toDouble(),
-      high: (json['high'] ?? 0.0).toDouble(),
-      low: (json['low'] ?? 0.0).toDouble(),
-      open: (json['open'] ?? 0.0).toDouble(),
-      volume: (json['volume'] ?? 0.0).toInt(),
+  // Computed properties
+  double get spread => ask - bid;
+  bool get isPositiveChange => change >= 0;
+  String get formattedAsk => ask.toStringAsFixed(2);
+  String get formattedBid => bid.toStringAsFixed(2);
+  String get formattedMid => mid.toStringAsFixed(2);
+  String get formattedChange => '${change > 0 ? '+' : ''}${change.toStringAsFixed(2)}';
+  String get formattedChangePercentage => '${changePercentage > 0 ? '+' : ''}${changePercentage.toStringAsFixed(2)}%';
+
+  factory CurrencyData.fromJson(Map<String, dynamic> json) {
+    return CurrencyData(
+      name: json['name'] as String,
+      ask: (json['ask'] as num).toDouble(),
+      bid: (json['bid'] as num).toDouble(),
+      mid: (json['mid'] as num).toDouble(),
+      change: (json['change'] as num).toDouble(),
+      changePercentage: (json['change_percentage'] as num).toDouble(),
+      previousRates: json['previous_rates'] != null
+          ? PreviousRates.fromJson(json['previous_rates'] as Map<String, dynamic>)
+          : null,
+      dataSource: json['data_source'] as String,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'close': close,
-      'high': high,
-      'low': low,
-      'open': open,
-      'volume': volume,
+      'name': name,
+      'ask': ask,
+      'bid': bid,
+      'mid': mid,
+      'change': change,
+      'change_percentage': changePercentage,
+      'previous_rates': previousRates?.toJson(),
+      'data_source': dataSource,
     };
   }
-
-  // Convenience getters
-  double get range => high - low;
-  double get changeFromOpen => close - open;
-  double get changePercentageFromOpen =>
-      open != 0 ? ((close - open) / open) * 100 : 0.0;
-  bool get isGreenCandle => close > open;
-  bool get isRedCandle => close < open;
-  bool get isDoji => close == open;
-
-  String get formattedOpen => open.toStringAsFixed(1);
-  String get formattedHigh => high.toStringAsFixed(1);
-  String get formattedLow => low.toStringAsFixed(1);
-  String get formattedClose => close.toStringAsFixed(1);
-  String get formattedVolume => volume.toString();
-  String get formattedRange => range.toStringAsFixed(1);
-  String get formattedChangeFromOpen => changeFromOpen > 0
-      ? '+${changeFromOpen.toStringAsFixed(1)}'
-      : changeFromOpen.toStringAsFixed(1);
-  String get formattedChangePercentageFromOpen => changePercentageFromOpen > 0
-      ? '+${changePercentageFromOpen.toStringAsFixed(2)}%'
-      : '${changePercentageFromOpen.toStringAsFixed(2)}%';
 }
 
 class PreviousRates {
-  final int ask;
-  final int bid;
+  final double ask;
+  final double bid;
   final double mid;
-  final String source;
   final String timestamp;
+  final String source;
 
-  PreviousRates({
+  const PreviousRates({
     required this.ask,
     required this.bid,
     required this.mid,
-    required this.source,
     required this.timestamp,
+    required this.source,
   });
 
   factory PreviousRates.fromJson(Map<String, dynamic> json) {
     return PreviousRates(
-      ask: (json['ask'] ?? 0).toInt(),
-      bid: (json['bid'] ?? 0).toInt(),
-      mid: (json['mid'] ?? 0.0).toDouble(),
-      source: json['source'] ?? '',
-      timestamp: json['timestamp'] ?? '',
+      ask: (json['ask'] as num).toDouble(),
+      bid: (json['bid'] as num).toDouble(),
+      mid: (json['mid'] as num).toDouble(),
+      timestamp: json['timestamp'] as String,
+      source: json['source'] as String,
     );
   }
 
@@ -254,29 +118,121 @@ class PreviousRates {
       'ask': ask,
       'bid': bid,
       'mid': mid,
-      'source': source,
       'timestamp': timestamp,
+      'source': source,
     };
   }
+}
 
-  // Convenience getters
-  int get spread => bid - ask;
-  DateTime? get parsedTimestamp {
-    try {
-      return DateTime.parse(timestamp);
-    } catch (e) {
-      return null;
-    }
+class CityRates {
+  final double ask;
+  final double bid;
+
+  const CityRates({
+    required this.ask,
+    required this.bid,
+  });
+
+  // Computed properties
+  double get mid => (ask + bid) / 2;
+  double get spread => ask - bid;
+  String get formattedAsk => ask.toStringAsFixed(2);
+  String get formattedBid => bid.toStringAsFixed(2);
+  String get formattedMid => mid.toStringAsFixed(2);
+
+  factory CityRates.fromJson(Map<String, dynamic> json) {
+    return CityRates(
+      ask: (json['ask'] as num).toDouble(),
+      bid: (json['bid'] as num).toDouble(),
+    );
   }
 
-  String get formattedAsk => ask.toString();
-  String get formattedBid => bid.toString();
-  String get formattedMid => mid.toStringAsFixed(1);
-  String get formattedSource =>
-      source.replaceAll('-', ' ').replaceAll('.com', '').toUpperCase();
-  String get formattedTimestamp {
-    final date = parsedTimestamp;
-    if (date == null) return timestamp;
-    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  Map<String, dynamic> toJson() {
+    return {
+      'ask': ask,
+      'bid': bid,
+    };
+  }
+}
+
+class OHLCVData {
+  final double open;
+  final double high;
+  final double low;
+  final double close;
+  final double volume;
+
+  const OHLCVData({
+    required this.open,
+    required this.high,
+    required this.low,
+    required this.close,
+    required this.volume,
+  });
+
+  // Computed properties
+  String get formattedVolume => volume.toStringAsFixed(0);
+
+  factory OHLCVData.fromJson(Map<String, dynamic> json) {
+    return OHLCVData(
+      open: (json['open'] as num).toDouble(),
+      high: (json['high'] as num).toDouble(),
+      low: (json['low'] as num).toDouble(),
+      close: (json['close'] as num).toDouble(),
+      volume: (json['volume'] as num).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'open': open,
+      'high': high,
+      'low': low,
+      'close': close,
+      'volume': volume,
+    };
+  }
+}
+
+class ComprehensiveResponse {
+  final DamascusPrediction damascusPrediction;
+  final List<CurrencyData> currencies;
+  final Map<String, CityRates> cityRates;
+  final OHLCVData ohlcv;
+
+  const ComprehensiveResponse({
+    required this.damascusPrediction,
+    required this.currencies,
+    required this.cityRates,
+    required this.ohlcv,
+  });
+
+  factory ComprehensiveResponse.fromJson(Map<String, dynamic> json) {
+    return ComprehensiveResponse(
+      damascusPrediction: DamascusPrediction.fromJson(
+        json['damascus_prediction'] as Map<String, dynamic>,
+      ),
+      currencies: (json['currencies'] as List<dynamic>)
+          .map((e) => CurrencyData.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      cityRates: (json['city_rates'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(
+          key,
+          CityRates.fromJson(value as Map<String, dynamic>),
+        ),
+      ),
+      ohlcv: OHLCVData.fromJson(json['ohlcv'] as Map<String, dynamic>),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'damascus_prediction': damascusPrediction.toJson(),
+      'currencies': currencies.map((e) => e.toJson()).toList(),
+      'city_rates': cityRates.map(
+        (key, value) => MapEntry(key, value.toJson()),
+      ),
+      'ohlcv': ohlcv.toJson(),
+    };
   }
 }

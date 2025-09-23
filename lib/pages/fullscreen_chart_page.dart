@@ -1,9 +1,31 @@
+library fullscreen_chart_page;
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../providers/paper_trading_provider.dart';
 import '../controllers/translation_controller.dart';
 import '../controllers/theme_controller.dart';
+
+// Candle data model for custom painter
+class CandleData {
+  final double x;
+  final double open;
+  final double high;
+  final double low;
+  final double close;
+  final DateTime time;
+
+  CandleData({
+    required this.x,
+    required this.open,
+    required this.high,
+    required this.low,
+    required this.close,
+    required this.time,
+  });
+}
 
 class FullscreenChartPage extends StatefulWidget {
   final String symbol;
@@ -33,6 +55,10 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
   String _currentSymbol = '';
   String _currentTimeframe = '';
 
+  // Debug tracking
+  double _lastMinPrice = 0.0;
+  double _lastMaxPrice = 0.0;
+
   // Chart viewport
   double _scrollOffset = 0.0;
   double _zoomLevel = 1.0;
@@ -56,6 +82,9 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
 
   // Animation
   late AnimationController _priceUpdateController;
+  
+  // Listener management
+  VoidCallback? _paperProviderListener;
 
   // Constants
   static const double AXIS_WIDTH = 60.0;
@@ -88,78 +117,121 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
   void _startLiveDataUpdates() {
     final paperProvider = Get.find<PaperTradingProvider>();
 
-    // Listen to chart data updates from simulation
-    if (paperProvider.chartDataStream != null) {
-      paperProvider.chartDataStream!.listen((chartData) {
-        if (chartData.containsKey(_currentSymbol)) {
-          setState(() {
-            _candles = List.from(chartData[_currentSymbol]!);
-            _updatePriceRange();
-          });
-          print(
-            '📊 [FULLSCREEN_CHART] Updated with live data: ${_candles.length} candles',
-          );
-        }
-      });
-    } else {
-      print('⚠️ [FULLSCREEN_CHART] Chart data stream not available');
-    }
+    // Create the listener callback
+    _paperProviderListener = () {
+      // Check if widget is still mounted before calling setState
+      if (!mounted) return;
+      
+      if (paperProvider.isSimulationRunning &&
+          paperProvider.chartData.containsKey(_currentSymbol)) {
+        final newCandles = paperProvider.chartData[_currentSymbol]!;
+
+        setState(() {
+          _candles = List.from(newCandles);
+          // Update scroll offset to show latest candles
+          _scrollOffset = (_candles.length - _visibleCandleCount)
+              .toDouble()
+              .clamp(0, _candles.length.toDouble());
+          _updatePriceRange();
+        });
+      }
+    };
+
+    // Add the listener
+    paperProvider.addListener(_paperProviderListener!);
   }
 
   @override
   void dispose() {
+    // Remove the listener to prevent setState after dispose
+    if (_paperProviderListener != null) {
+      final paperProvider = Get.find<PaperTradingProvider>();
+      paperProvider.removeListener(_paperProviderListener!);
+      _paperProviderListener = null;
+    }
+    
     _priceUpdateController.dispose();
     super.dispose();
   }
 
   void _initializeChart() {
-    if (_candles.isEmpty) return;
+    if (_candles.isEmpty) {
+      // Don't return early - let the chart show empty state
+      // The live data updates will populate it when real data arrives
+    } else {
+      // Set initial scroll to show latest candles
+      _scrollOffset = (_candles.length - _visibleCandleCount).toDouble().clamp(
+        0,
+        _candles.length.toDouble(),
+      );
 
-    // Set initial scroll to show latest candles
-    _scrollOffset = (_candles.length - _visibleCandleCount).toDouble().clamp(
-      0,
-      _candles.length.toDouble(),
-    );
-    _updatePriceRange();
+      _updatePriceRange();
+    }
 
     // Force a rebuild to ensure proper rendering
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        setState(() {
-          // Trigger a repaint
-        });
+        setState(() {});
       }
     });
   }
 
   void _updatePriceRange() {
-    if (_candles.isEmpty) return;
-
-    final startIdx = _scrollOffset.floor().clamp(0, _candles.length - 1);
-    final endIdx = (startIdx + _visibleCandleCount).clamp(0, _candles.length);
-
-    double min = double.infinity;
-    double max = double.negativeInfinity;
-
-    for (int i = startIdx; i < endIdx && i < _candles.length; i++) {
-      final candle = _candles[i];
-      min = min > candle['low']! ? candle['low']! : min;
-      max = max < candle['high']! ? candle['high']! : max;
+    if (_candles.isEmpty) {
+      return;
     }
 
-    // Ensure we have valid values
-    if (min == double.infinity || max == double.negativeInfinity) {
-      min = _candles.first['low']!;
-      max = _candles.first['high']!;
+    // Get current price from live simulation data or most recent candle
+    double currentPrice;
+    final paperProvider = Get.find<PaperTradingProvider>();
+
+    if (paperProvider.isSimulationRunning &&
+        paperProvider.currentPrices.containsKey(_currentSymbol)) {
+      currentPrice = paperProvider.currentPrices[_currentSymbol]!;
+    } else {
+      currentPrice = _candles.last['close']!;
     }
 
-    // Add 5% padding
-    final padding = (max - min) * 0.05;
+    // Focus on recent candles (last 50) for better visualization
+    final recentCandles = _candles.length > 50
+        ? _candles.sublist(_candles.length - 50)
+        : _candles;
+
+    // Find min/max from recent candles
+    double minPrice = double.infinity;
+    double maxPrice = double.negativeInfinity;
+
+    for (final candle in recentCandles) {
+      minPrice = minPrice < candle['low']! ? minPrice : candle['low']!;
+      maxPrice = maxPrice > candle['high']! ? maxPrice : candle['high']!;
+    }
+
+    // Ensure current price is included
+    minPrice = minPrice < currentPrice ? minPrice : currentPrice;
+    maxPrice = maxPrice > currentPrice ? maxPrice : currentPrice;
+
+    // Add a small buffer
+    final buffer = (maxPrice - minPrice) * 0.1; // 10% buffer
+
+    // Check for significant price range changes
+    if (_lastMinPrice != 0.0 && _lastMaxPrice != 0.0) {
+      final minChange = (minPrice - buffer - _lastMinPrice).abs();
+      final maxChange = (maxPrice + buffer - _lastMaxPrice).abs();
+      final significantChange =
+          minChange > 0.01 || maxChange > 0.01; // 1% change threshold
+
+      if (significantChange) {}
+    }
+
     setState(() {
-      _minPrice = min - padding;
-      _maxPrice = max + padding;
+      _minPrice = minPrice - buffer;
+      _maxPrice = maxPrice + buffer;
       _priceRange = _maxPrice - _minPrice;
     });
+
+    // Update tracking values
+    _lastMinPrice = _minPrice;
+    _lastMaxPrice = _maxPrice;
   }
 
   void _handleScroll(double delta) {
@@ -309,7 +381,7 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
 
           const Spacer(),
 
-          // Current price
+          // Current price or no data message
           if (_candles.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -333,9 +405,101 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
                   fontWeight: FontWeight.bold,
                 ),
               ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.orange.withOpacity(0.2)
+                    : Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'No Data',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFlChart() {
+    final isDark = _themeController.isDarkMode;
+
+    if (_candles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.analytics_outlined,
+              size: 64,
+              color: isDark ? Colors.white24 : Colors.black26,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No Real Data Available',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Waiting for dashboard data...',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white54 : Colors.black38,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Convert candles to CandleData format for custom painter
+    final List<CandleData> candleData = [];
+    for (int i = 0; i < _candles.length; i++) {
+      final candle = _candles[i];
+
+      // Add null safety checks
+      final open = candle['open'] ?? 0.0;
+      final high = candle['high'] ?? 0.0;
+      final low = candle['low'] ?? 0.0;
+      final close = candle['close'] ?? 0.0;
+
+      candleData.add(
+        CandleData(
+          x: i.toDouble(),
+          open: open,
+          high: high,
+          low: low,
+          close: close,
+          time: DateTime.now().subtract(
+            Duration(minutes: _candles.length - i - 1),
+          ),
+        ),
+      );
+    }
+
+    return CustomPaint(
+      painter: CandlestickPainter(
+        candles: candleData,
+        minPrice: _minPrice,
+        maxPrice: _maxPrice,
+        isDark: isDark,
+        showMA20: _showMA20,
+        showMA50: _showMA50,
+        showVolume: _showVolume,
+      ),
+      size: Size.infinite,
     );
   }
 
@@ -377,37 +541,49 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
         color: isDark ? const Color(0xFF0A0E17) : const Color(0xFFF5F5F5),
         child: Stack(
           children: [
-            // Main chart area with clipping
-            Positioned.fill(
-              right: AXIS_WIDTH,
-              bottom: AXIS_HEIGHT,
-              child: ClipRect(
-                child: CustomPaint(
-                  painter: ChartPainter(
-                    candles: _candles,
-                    scrollOffset: _scrollOffset,
-                    zoomLevel: _zoomLevel,
-                    candleWidth: _candleWidth,
-                    visibleCandleCount: _visibleCandleCount,
-                    minPrice: _minPrice,
-                    maxPrice: _maxPrice,
-                    showMA20: _showMA20,
-                    showMA50: _showMA50,
-                    showVolume: _showVolume,
-                    crosshairPosition: _crosshairPosition != null
-                        ? Offset(_crosshairPosition!.dx, _crosshairPosition!.dy)
-                        : null,
-                    isDark: isDark,
-                  ),
+            // No data message if no real data available
+            if (_candles.isEmpty)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.analytics_outlined,
+                      size: 64,
+                      color: isDark ? Colors.white24 : Colors.black26,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No Real Data Available',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Waiting for dashboard data...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? Colors.white54 : Colors.black38,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+
+            // Main chart area with fl_chart (full height since X-axis removed)
+            Positioned.fill(
+              right: AXIS_WIDTH,
+              child: _buildFlChart(),
             ),
 
             // Fixed Y-axis (price)
             Positioned(
               right: 0,
               top: 0,
-              bottom: AXIS_HEIGHT,
+              bottom: 0,
               width: AXIS_WIDTH,
               child: Container(
                 decoration: BoxDecoration(
@@ -432,38 +608,38 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
               ),
             ),
 
-            // Fixed X-axis (time)
-            Positioned(
-              left: 0,
-              right: AXIS_WIDTH,
-              bottom: 0,
-              height: AXIS_HEIGHT,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF0F1419)
-                      : const Color(0xFFF8F9FA),
-                  border: Border(
-                    top: BorderSide(
-                      color: isDark
-                          ? Colors.white.withOpacity(0.1)
-                          : Colors.black.withOpacity(0.1),
-                    ),
-                  ),
-                ),
-                child: CustomPaint(
-                  painter: XAxisPainter(
-                    candles: _candles,
-                    scrollOffset: _scrollOffset,
-                    candleWidth: _candleWidth,
-                    zoomLevel: _zoomLevel,
-                    visibleCandleCount: _visibleCandleCount,
-                    timeframe: _currentTimeframe,
-                    isDark: isDark,
-                  ),
-                ),
-              ),
-            ),
+            // X-axis (time) removed - only keeping right Y-axis
+            // Positioned(
+            //   left: 0,
+            //   right: AXIS_WIDTH,
+            //   bottom: 0,
+            //   height: AXIS_HEIGHT,
+            //   child: Container(
+            //     decoration: BoxDecoration(
+            //       color: isDark
+            //           ? const Color(0xFF0F1419)
+            //           : const Color(0xFFF8F9FA),
+            //       border: Border(
+            //         top: BorderSide(
+            //           color: isDark
+            //               ? Colors.white.withOpacity(0.1)
+            //               : Colors.black.withOpacity(0.1),
+            //         ),
+            //       ),
+            //     ),
+            //     child: CustomPaint(
+            //       painter: XAxisPainter(
+            //         candles: _candles,
+            //         scrollOffset: _scrollOffset,
+            //         candleWidth: _candleWidth,
+            //         zoomLevel: _zoomLevel,
+            //         visibleCandleCount: _visibleCandleCount,
+            //         timeframe: _currentTimeframe,
+            //         isDark: isDark,
+            //       ),
+            //     ),
+            //   ),
+            // ),
 
             // Crosshair info
             if (_crosshairPosition != null)
@@ -723,9 +899,6 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
       // Convert timeframe format for simulation
       String simulationTimeframe = _convertTimeframeForSimulation(timeframe);
       paperProvider.updateTimeframe(simulationTimeframe);
-      print(
-        '📊 [FULLSCREEN_CHART] Updated simulation timeframe to: $simulationTimeframe',
-      );
     }
 
     _initializeChart();
@@ -798,7 +971,10 @@ class ChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (candles.isEmpty || size.width <= 0 || size.height <= 0) return;
+    if (candles.isNotEmpty) {}
+    if (candles.isEmpty || size.width <= 0 || size.height <= 0) {
+      return;
+    }
 
     // Draw grid
     _drawGrid(canvas, size);
@@ -843,11 +1019,15 @@ class ChartPainter extends CustomPainter {
 
   void _drawCandles(Canvas canvas, Size size) {
     final priceRange = maxPrice - minPrice;
-    if (priceRange == 0 || candles.isEmpty) return;
+
+    if (priceRange == 0 || candles.isEmpty) {
+      return;
+    }
 
     final startIdx = scrollOffset.floor().clamp(0, candles.length - 1);
     final endIdx = (startIdx + visibleCandleCount).clamp(0, candles.length);
 
+    int drawnCount = 0;
     for (int i = startIdx; i < endIdx && i < candles.length; i++) {
       final candle = candles[i];
       final x = (i - scrollOffset) * candleWidth * zoomLevel;
@@ -861,11 +1041,24 @@ class ChartPainter extends CustomPainter {
 
       final isGreen = close >= open;
 
-      // Calculate Y positions
-      final yOpen = size.height * (1 - (open - minPrice) / priceRange);
-      final yClose = size.height * (1 - (close - minPrice) / priceRange);
-      final yHigh = size.height * (1 - (high - minPrice) / priceRange);
-      final yLow = size.height * (1 - (low - minPrice) / priceRange);
+      // Calculate Y positions (match Y-axis: higher prices at top)
+      // Simplified calculation: map price range to 0-height range
+      final priceRatio = (open - minPrice) / priceRange;
+      final yOpen = size.height * (1 - priceRatio);
+
+      final closeRatio = (close - minPrice) / priceRange;
+      final yClose = size.height * (1 - closeRatio);
+
+      final highRatio = (high - minPrice) / priceRange;
+      final yHigh = size.height * (1 - highRatio);
+
+      final lowRatio = (low - minPrice) / priceRange;
+      final yLow = size.height * (1 - lowRatio);
+
+      if (drawnCount < 2) {
+        // Only log first 2 candles to avoid spam
+      }
+      drawnCount++;
 
       // Draw wick
       final wickPaint = Paint()
@@ -989,23 +1182,33 @@ class YAxisPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final priceRange = maxPrice - minPrice;
-    if (priceRange == 0) return;
+
+    if (priceRange <= 0.0001) {
+      return;
+    }
 
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
     for (int i = 0; i <= 10; i++) {
       final price = maxPrice - (priceRange * i / 10);
       final y = size.height * (i / 10);
+      
+
 
       textPainter.text = TextSpan(
-        text: price.toStringAsFixed(5),
+        text: price.toStringAsFixed(4),
         style: TextStyle(
-          color: isDark ? Colors.white54 : Colors.black54,
-          fontSize: 9,
+          color: isDark ? Colors.white70 : Colors.black87,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
         ),
       );
       textPainter.layout();
       textPainter.paint(canvas, Offset(4, y - textPainter.height / 2));
+
+      if (i <= 1) {
+        // Log first 2 labels
+      }
     }
   }
 
@@ -1042,8 +1245,8 @@ class XAxisPainter extends CustomPainter {
     final startIdx = scrollOffset.floor();
     final candleSpacing = candleWidth * zoomLevel;
 
-    // Draw time labels every N candles based on zoom
-    final labelInterval = (10 / zoomLevel).round().clamp(1, 50);
+    // Simple label interval - every 10 candles
+    final labelInterval = 10;
 
     for (int i = 0; i < visibleCandleCount; i += labelInterval) {
       final candleIdx = startIdx + i;
@@ -1053,14 +1256,18 @@ class XAxisPainter extends CustomPainter {
       final x = i * candleSpacing + (candleWidth * zoomLevel) / 2;
       if (x > size.width) break;
 
-      // Generate realistic time based on timeframe
-      final timeLabel = _generateTimeLabel(candleIdx, candles.length);
+      // Simple time label - show relative candle position
+      final timeLabel = '${i + 1}';
+
+      // Skip if no valid time label
+      if (timeLabel.isEmpty) continue;
 
       textPainter.text = TextSpan(
         text: timeLabel,
         style: TextStyle(
-          color: isDark ? Colors.white54 : Colors.black54,
-          fontSize: 9,
+          color: isDark ? Colors.white : Colors.black, // Make text more visible
+          fontSize: 10, // Slightly larger font
+          fontWeight: FontWeight.w500,
         ),
       );
       textPainter.layout();
@@ -1068,64 +1275,280 @@ class XAxisPainter extends CustomPainter {
       // Center the text under the candle
       final textX = x - textPainter.width / 2;
       if (textX > 0 && textX + textPainter.width < size.width) {
-        textPainter.paint(canvas, Offset(textX, 4));
+        textPainter.paint(canvas, Offset(textX, 2)); // Move slightly higher
       }
     }
   }
 
   String _generateTimeLabel(int candleIdx, int totalCandles) {
-    final progress = candleIdx / totalCandles;
+    if (candleIdx >= candles.length) return '';
+
+    // Get the actual timestamp from the candle
+    final candle = candles[candleIdx];
+    final timestamp = candle['time'];
+
+    // Fallback to current time if no timestamp
+    DateTime dateTime;
+    if (timestamp != null && timestamp > 0) {
+      dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt());
+    } else {
+      // Generate a proper chronological sequence starting from oldest to newest
+      final now = DateTime.now();
+
+      // Calculate time based on timeframe
+      int timeOffset;
+      switch (timeframe) {
+        case 'M1':
+          timeOffset = (totalCandles - candleIdx - 1); // 1 minute per candle
+          dateTime = now.subtract(Duration(minutes: timeOffset));
+          break;
+        case 'M5':
+          timeOffset =
+              (totalCandles - candleIdx - 1) * 5; // 5 minutes per candle
+          dateTime = now.subtract(Duration(minutes: timeOffset));
+          break;
+        case 'M15':
+          timeOffset =
+              (totalCandles - candleIdx - 1) * 15; // 15 minutes per candle
+          dateTime = now.subtract(Duration(minutes: timeOffset));
+          break;
+        case 'M30':
+          timeOffset =
+              (totalCandles - candleIdx - 1) * 30; // 30 minutes per candle
+          dateTime = now.subtract(Duration(minutes: timeOffset));
+          break;
+        case 'H1':
+          timeOffset = (totalCandles - candleIdx - 1); // 1 hour per candle
+          dateTime = now.subtract(Duration(hours: timeOffset));
+          break;
+        case 'H4':
+          timeOffset = (totalCandles - candleIdx - 1) * 4; // 4 hours per candle
+          dateTime = now.subtract(Duration(hours: timeOffset));
+          break;
+        case 'D1':
+          timeOffset = (totalCandles - candleIdx - 1); // 1 day per candle
+          dateTime = now.subtract(Duration(days: timeOffset));
+          break;
+        default:
+          timeOffset = (totalCandles - candleIdx - 1);
+          dateTime = now.subtract(Duration(hours: timeOffset));
+      }
+    }
 
     switch (timeframe) {
       case 'M1':
-        // 1-minute intervals: 09:30, 09:31, 09:32...
-        final totalMinutes = (progress * 6.5 * 60)
-            .floor(); // 6.5 hours of trading
-        final hour = 9 + (totalMinutes ~/ 60);
-        final minute = totalMinutes % 60;
-        return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+        // 1-minute intervals: show HH:MM
+        return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 
       case 'M5':
-        // 5-minute intervals: 09:30, 09:35, 09:40...
-        final totalMinutes = (progress * 6.5 * 60).floor();
-        final hour = 9 + (totalMinutes ~/ 60);
-        final minute = (totalMinutes % 60) ~/ 5 * 5; // Round to nearest 5
-        return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+        // 5-minute intervals: show HH:MM (rounded to nearest 5)
+        final minute = (dateTime.minute ~/ 5) * 5;
+        return '${dateTime.hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
       case 'M15':
-        // 15-minute intervals: 09:30, 09:45, 10:00...
-        final totalMinutes = (progress * 6.5 * 60).floor();
-        final hour = 9 + (totalMinutes ~/ 60);
-        final minute = (totalMinutes % 60) ~/ 15 * 15; // Round to nearest 15
-        return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+        // 15-minute intervals: show HH:MM (rounded to nearest 15)
+        final minute = (dateTime.minute ~/ 15) * 15;
+        return '${dateTime.hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
       case 'M30':
-        // 30-minute intervals: 09:30, 10:00, 10:30...
-        final totalMinutes = (progress * 6.5 * 60).floor();
-        final hour = 9 + (totalMinutes ~/ 60);
-        final minute = (totalMinutes % 60) ~/ 30 * 30; // Round to nearest 30
-        return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+        // 30-minute intervals: show HH:MM (rounded to nearest 30)
+        final minute = (dateTime.minute ~/ 30) * 30;
+        return '${dateTime.hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
       case 'H1':
-        // 1-hour intervals: 09:00, 10:00, 11:00...
-        final hour = 9 + (progress * 6.5).floor();
-        return '${hour.toString().padLeft(2, '0')}:00';
+        // 1-hour intervals: show DD HH:00 for multi-day charts
+        if (totalCandles > 24) {
+          return '${dateTime.day.toString().padLeft(2, '0')} ${dateTime.hour.toString().padLeft(2, '0')}:00';
+        } else {
+          return '${dateTime.hour.toString().padLeft(2, '0')}:00';
+        }
 
       case 'H4':
-        // 4-hour intervals: 09:00, 13:00, 17:00...
-        final hour = 9 + (progress * 6.5).floor() * 4;
-        return '${hour.toString().padLeft(2, '0')}:00';
+        // 4-hour intervals: show DD HH:00 (rounded to nearest 4 hours)
+        final hour = (dateTime.hour ~/ 4) * 4;
+        if (totalCandles > 6) {
+          return '${dateTime.day.toString().padLeft(2, '0')} ${hour.toString().padLeft(2, '0')}:00';
+        } else {
+          return '${hour.toString().padLeft(2, '0')}:00';
+        }
 
       case 'D1':
-        // Daily intervals: 01/01, 02/01, 03/01...
-        final day = 1 + (progress * 30).floor();
-        return '${day.toString().padLeft(2, '0')}/01';
+        // Daily intervals: show DD/MM
+        return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}';
 
       default:
         // Default to hour format
-        final hour = 9 + (progress * 6.5).floor();
-        return '${hour.toString().padLeft(2, '0')}:00';
+        return '${dateTime.hour.toString().padLeft(2, '0')}:00';
     }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+// Custom Candlestick Painter for OHLCV data
+class CandlestickPainter extends CustomPainter {
+  final List<CandleData> candles;
+  final double minPrice;
+  final double maxPrice;
+  final bool isDark;
+  final bool showMA20;
+  final bool showMA50;
+  final bool showVolume;
+
+  CandlestickPainter({
+    required this.candles,
+    required this.minPrice,
+    required this.maxPrice,
+    required this.isDark,
+    required this.showMA20,
+    required this.showMA50,
+    required this.showVolume,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (candles.isEmpty) return;
+
+    final priceRange = maxPrice - minPrice;
+    if (priceRange == 0) return;
+
+    // Calculate candle width and spacing
+    final candleWidth = size.width / candles.length * 0.8;
+    final candleSpacing = size.width / candles.length;
+
+    // Draw grid lines (keeping grid, removing axes)
+    _drawGrid(canvas, size);
+    
+    // Axes removed - only keeping right Y-axis
+    // _drawYAxisLabels(canvas, size, priceRange);
+    // _drawXAxisLabels(canvas, size);
+
+    // Draw candles
+    for (int i = 0; i < candles.length; i++) {
+      final candle = candles[i];
+      final x = i * candleSpacing + candleSpacing / 2;
+      _drawCandle(canvas, candle, x, candleWidth, size.height, priceRange);
+    }
+
+    // Draw moving averages
+    if (showMA20) _drawMA(canvas, size, 20, Colors.yellow, priceRange);
+    if (showMA50) _drawMA(canvas, size, 50, Colors.cyan, priceRange);
+  }
+
+  void _drawGrid(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = isDark
+          ? Colors.white.withOpacity(0.1)
+          : Colors.black.withOpacity(0.1)
+      ..strokeWidth = 1;
+
+    // Horizontal grid lines
+    for (int i = 0; i <= 10; i++) {
+      final y = size.height * (i / 10);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+
+    // Vertical grid lines
+    for (int i = 0; i <= 10; i++) {
+      final x = size.width * (i / 10);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+  }
+
+  // _drawYAxisLabels method removed - using custom right Y-axis instead
+
+  // _drawXAxisLabels method removed - no X-axis needed
+
+  void _drawCandle(
+    Canvas canvas,
+    CandleData candle,
+    double x,
+    double width,
+    double height,
+    double priceRange,
+  ) {
+    final yHigh = height * (1 - (candle.high - minPrice) / priceRange);
+    final yLow = height * (1 - (candle.low - minPrice) / priceRange);
+    final yOpen = height * (1 - (candle.open - minPrice) / priceRange);
+    final yClose = height * (1 - (candle.close - minPrice) / priceRange);
+
+    final isGreen = candle.close >= candle.open;
+    final color = isGreen ? Colors.green : Colors.red;
+
+    // Draw wick (high-low line)
+    final wickPaint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+
+    canvas.drawLine(Offset(x, yHigh), Offset(x, yLow), wickPaint);
+
+    // Draw body
+    final bodyPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final bodyTop = yOpen < yClose ? yOpen : yClose;
+    final bodyHeight = (yClose - yOpen).abs();
+    final minBodyHeight = 1.0;
+    final actualBodyHeight = bodyHeight < minBodyHeight
+        ? minBodyHeight
+        : bodyHeight;
+
+    canvas.drawRect(
+      Rect.fromLTWH(x - width / 2, bodyTop, width, actualBodyHeight),
+      bodyPaint,
+    );
+
+    // Draw body outline
+    final outlinePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    canvas.drawRect(
+      Rect.fromLTWH(x - width / 2, bodyTop, width, actualBodyHeight),
+      outlinePaint,
+    );
+  }
+
+  void _drawMA(
+    Canvas canvas,
+    Size size,
+    int period,
+    Color color,
+    double priceRange,
+  ) {
+    if (candles.length < period) return;
+
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    bool firstPoint = true;
+
+    for (int i = period - 1; i < candles.length; i++) {
+      double sum = 0;
+      for (int j = 0; j < period; j++) {
+        sum += candles[i - j].close;
+      }
+      final ma = sum / period;
+
+      final x =
+          i * (size.width / candles.length) + (size.width / candles.length) / 2;
+      final y = size.height * (1 - (ma - minPrice) / priceRange);
+
+      if (firstPoint) {
+        path.moveTo(x, y);
+        firstPoint = false;
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    canvas.drawPath(path, paint);
   }
 
   @override

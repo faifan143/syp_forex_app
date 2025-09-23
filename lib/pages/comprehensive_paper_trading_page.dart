@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'dart:async';
 import 'dart:math';
 import '../providers/paper_trading_provider.dart';
-import '../providers/forex_provider.dart';
+
 import '../models/paper_trading_models.dart';
 import '../models/forex_models.dart';
 import '../services/realistic_data_generator.dart';
@@ -26,6 +26,7 @@ class _ComprehensivePaperTradingPageState
   final _takeProfitController = TextEditingController();
 
   String _selectedSymbol = 'EUR/USD';
+  String _selectedCurrency = 'EUR'; // Default to EUR for API calls
   String _selectedTimeframe = '1h'; // Default to 1 hour timeframe
   PositionType _selectedType = PositionType.buy;
 
@@ -41,8 +42,7 @@ class _ComprehensivePaperTradingPageState
   final Map<String, Map<String, List<Map<String, double>>>> _cachedChartData =
       {};
 
-  // Timer for periodic dashboard data sync
-  Timer? _dashboardSyncTimer;
+  // Note: Dashboard sync timer removed - only using simulation data
 
   // Color helper
   // ignore: unused_element
@@ -143,9 +143,8 @@ class _ComprehensivePaperTradingPageState
     return pips * pipValue;
   }
 
-  // Get current price for a position from dashboard data or simulation
+  // Get current price for a position from simulation data only
   double _getCurrentPriceForPosition(Position position) {
-    final forexProvider = Get.find<ForexProvider>();
     final paperProvider = Get.find<PaperTradingProvider>();
 
     // PRIORITIZE SIMULATION DATA for real-time updates in open positions
@@ -155,22 +154,6 @@ class _ComprehensivePaperTradingPageState
         '🔄 [OPEN_POSITIONS] Using simulation data for ${position.symbol}: ${paperProvider.currentPrices[position.symbol]}',
       );
       return paperProvider.currentPrices[position.symbol]!;
-    }
-
-    // Fallback to dashboard data (static data)
-    if (forexProvider.dashboardData != null) {
-      // Convert symbol format to match API (EUR/USD -> EURUSD)
-      final apiSymbol = position.symbol.replaceAll('/', '');
-      final currency = forexProvider.dashboardData!.currencies
-          .where((c) => c.pair == apiSymbol)
-          .firstOrNull;
-
-      if (currency != null) {
-        print(
-          '🔄 [OPEN_POSITIONS] Using dashboard data for ${position.symbol}: ${currency.currentValue}',
-        );
-        return currency.currentValue;
-      }
     }
 
     // Last resort: use stored current price
@@ -196,99 +179,53 @@ class _ComprehensivePaperTradingPageState
     return pips * pipValue * position.volume;
   }
 
-  // Helper method to update paper trading with forex data from dashboard or rates
-  void _updatePaperTradingWithForexData(
-    ForexProvider forexProvider,
-    PaperTradingProvider paperProvider,
-  ) {
-    // Try to get data from dashboard first, then fallback to rates
-    if (forexProvider.dashboardData != null) {
-      // Convert dashboard data to ForexRate format for paper trading
-      final rates = <ForexRate>[];
-      for (final currency in forexProvider.dashboardData!.currencies) {
-        // Convert from EURUSD format to EUR/USD format for ForexRate
-        final pair = currency.pair;
-        String fromCurrency, toCurrency, formattedSymbol;
-        if (pair.startsWith('USD')) {
-          // USD pairs: USDJPY -> USD, JPY, USD/JPY
-          fromCurrency = 'USD';
-          toCurrency = pair.substring(3);
-          formattedSymbol = 'USD/$toCurrency';
-        } else {
-          // Other pairs: EURUSD -> EUR, USD, EUR/USD
-          fromCurrency = pair.substring(0, 3);
-          toCurrency = pair.substring(3);
-          formattedSymbol = '$fromCurrency/$toCurrency';
-        }
+  // Note: Dashboard data fallback methods removed - only using simulation data
 
-        final rate = ForexRate(
-          fromCurrency: fromCurrency,
-          toCurrency: toCurrency,
-          symbol: formattedSymbol,
-          rate: currency.currentValue,
-          timestamp: DateTime.now(),
-          change: currency.tomorrowChange,
-          changePercent: currency.tomorrowChangePercent,
-        );
-        rates.add(rate);
-      }
-      paperProvider.updateForexRates(rates);
-
-      // Feed dashboard data into the simulation as base prices (simulation continues running)
-      _updateSimulationWithDashboardData(
-        forexProvider.dashboardData!.currencies,
-        paperProvider,
-      );
-    } else if (forexProvider.forexRates.isNotEmpty) {
-      // Fallback to regular forex rates
-      paperProvider.updateForexRates(forexProvider.forexRates.values.toList());
-
-      // Feed forex rates into simulation as base prices (simulation continues running)
-      _updateSimulationWithForexRates(
-        forexProvider.forexRates.values.toList(),
-        paperProvider,
-      );
+  // Map currency pairs to API currency codes
+  String _getCurrencyCodeFromPair(String pair) {
+    // Map currency pairs to their corresponding API currency codes
+    // For USD pairs, we need the quote currency, not the base currency
+    switch (pair) {
+      case 'EUR/USD':
+        return 'EUR';
+      case 'GBP/USD':
+        return 'GBP';
+      case 'AUD/USD':
+        return 'AUD';
+      case 'NZD/USD':
+        return 'NZD';
+      case 'USD/JPY':
+        return 'JPY';
+      case 'USD/CHF':
+        return 'CHF';
+      case 'USD/CAD':
+        return 'CAD';
+      case 'USD/SEK':
+        return 'SEK';
+      case 'USD/TRY':
+        return 'TRY';
+      case 'USD/CNY':
+        return 'CNH';
+      default:
+        return 'EUR'; // Default fallback
     }
   }
 
-  // Update simulation with dashboard data as base prices
-  void _updateSimulationWithDashboardData(
-    List<dynamic> currencies,
-    PaperTradingProvider paperProvider,
-  ) {
-    // Create a map of current prices from dashboard data
-    final Map<String, double> dashboardPrices = {};
-    for (final currency in currencies) {
-      // Convert from EURUSD format to EUR/USD format for simulation
-      final pair = currency.pair;
-      String formattedPair;
-      if (pair.startsWith('USD')) {
-        // USD pairs: USDJPY -> USD/JPY
-        formattedPair = 'USD/${pair.substring(3)}';
-      } else {
-        // Other pairs: EURUSD -> EUR/USD
-        formattedPair = '${pair.substring(0, 3)}/${pair.substring(3)}';
-      }
-      dashboardPrices[formattedPair] = currency.currentValue;
-    }
-
-    // Update the simulation service with dashboard prices
-    paperProvider.updateSimulationBasePrices(dashboardPrices);
-  }
-
-  // Update simulation with forex rates as base prices
-  void _updateSimulationWithForexRates(
-    List<ForexRate> rates,
-    PaperTradingProvider paperProvider,
-  ) {
-    // Create a map of current prices from forex rates
-    final Map<String, double> ratePrices = {};
-    for (final rate in rates) {
-      ratePrices[rate.symbol] = rate.rate;
-    }
-
-    // Update the simulation service with rate prices
-    paperProvider.updateSimulationBasePrices(ratePrices);
+  // Get supported currency pairs for the dropdown
+  List<String> _getSupportedCurrencyPairs() {
+    // Only include currencies supported by the Flask /simulation endpoint
+    return [
+      'EUR/USD', // EUR - supported
+      'GBP/USD', // GBP - supported
+      'AUD/USD', // AUD - supported
+      'NZD/USD', // NZD - supported
+      'USD/JPY', // JPY - supported
+      'USD/CHF', // CHF - supported
+      'USD/CAD', // CAD - supported
+      'USD/SEK', // SEK - supported
+      'USD/TRY', // TRY - supported
+      'USD/CNY', // CNH - supported
+    ];
   }
 
   // Get spread percentage based on currency pair
@@ -332,43 +269,56 @@ class _ComprehensivePaperTradingPageState
     }
   }
 
+  // Change currency pair and load new simulation data
+  Future<void> _changeCurrencyPair(String newSymbol) async {
+    if (newSymbol != _selectedSymbol) {
+      // Get the API currency code for the new symbol
+      final currencyCode = _getCurrencyCodeFromPair(newSymbol);
+
+      setState(() {
+        _selectedSymbol = newSymbol;
+        _selectedCurrency = currencyCode;
+      });
+
+      // Load simulation data for the new currency using the API currency code
+      final paperProvider = Get.find<PaperTradingProvider>();
+      await paperProvider.loadSimulationData(currencyCode);
+      paperProvider.startSimulation(timeframe: _selectedTimeframe);
+
+      // Clear chart cache to force refresh with new data
+      _cachedChartData.clear();
+
+      // Refresh the UI
+      setState(() {});
+
+      print(
+        '🔄 [CURRENCY_CHANGE] Switched to $newSymbol ($currencyCode) and loaded simulation data',
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final forexProvider = Get.find<ForexProvider>();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final paperProvider = Get.find<PaperTradingProvider>();
 
-      // Load forex dashboard data (same as home page) with fallback to rates
-      forexProvider.loadForexDashboard(forceRefresh: true);
+      // Note: Dashboard data loading removed - only using simulation data
       paperProvider.initialize();
+
+      // Load simulation data for the default currency
+      await paperProvider.loadSimulationData(_selectedCurrency);
       paperProvider.startSimulation(
         timeframe: _selectedTimeframe,
       ); // Start paper trading simulation with timeframe
 
-      // Update paper trading with forex data after a short delay
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _updatePaperTradingWithForexData(forexProvider, paperProvider);
-      });
-
-      // Set up periodic refresh to sync with dashboard data
-      _dashboardSyncTimer = Timer.periodic(const Duration(seconds: 30), (
-        timer,
-      ) {
-        if (forexProvider.dashboardData != null) {
-          _updatePaperTradingWithForexData(forexProvider, paperProvider);
-          // Clear chart cache to force refresh with new data
-          _cachedChartData.clear();
-          setState(() {}); // Refresh the UI
-        }
-      });
+      // Note: Dashboard data sync removed - only using simulation data
     });
   }
 
   @override
   void dispose() {
-    _dashboardSyncTimer?.cancel();
     _volumeController.dispose();
     _stopLossController.dispose();
     _takeProfitController.dispose();
@@ -384,15 +334,20 @@ class _ComprehensivePaperTradingPageState
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              final forexProvider = Get.find<ForexProvider>();
+            onPressed: () async {
               final paperProvider = Get.find<PaperTradingProvider>();
-              // Use same data source as home page
-              forexProvider.loadForexDashboard(forceRefresh: true);
-              // Update paper trading with new data
-              Future.delayed(const Duration(milliseconds: 500), () {
-                _updatePaperTradingWithForexData(forexProvider, paperProvider);
-              });
+              // Reload simulation data for current currency code
+              await paperProvider.loadSimulationData(_selectedCurrency);
+              paperProvider.startSimulation(timeframe: _selectedTimeframe);
+
+              // Clear chart cache to force refresh with new data
+              _cachedChartData.clear();
+
+              setState(() {}); // Refresh the UI
+
+              print(
+                '🔄 [REFRESH] Reloaded simulation data for $_selectedSymbol ($_selectedCurrency)',
+              );
             },
             tooltip: 'refresh'.tr,
           ),
@@ -443,7 +398,6 @@ class _ComprehensivePaperTradingPageState
             ),
           );
         }
-
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -582,77 +536,49 @@ class _ComprehensivePaperTradingPageState
   }
 
   Widget _buildChartSection() {
-    return GetBuilder<ForexProvider>(
-      builder: (forexProvider) {
-        return GetBuilder<PaperTradingProvider>(
-          builder: (paperProvider) {
-            // Get current rate from dashboard data or forex rates (same as home page)
-            ForexRate? currentRate;
-            if (forexProvider.dashboardData != null) {
-              // Find currency in dashboard data
-              final currency = forexProvider.dashboardData!.currencies
-                  .where((c) => c.pair == _selectedSymbol)
-                  .firstOrNull;
-              if (currency != null) {
-                currentRate = ForexRate(
-                  fromCurrency: currency.pair.split('/')[0],
-                  toCurrency: currency.pair.split('/')[1],
-                  symbol: currency.pair,
-                  rate: currency.currentValue,
-                  timestamp: DateTime.now(),
-                  change: currency.tomorrowChange,
-                  changePercent: currency.tomorrowChangePercent,
-                );
-              }
-            } else {
-              // Fallback to regular forex rates
-              currentRate = forexProvider.forexRates[_selectedSymbol];
-            }
-
-            return Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).colorScheme.surfaceContainerHighest,
-                    Theme.of(context).colorScheme.surface,
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.shadow.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+    return GetBuilder<PaperTradingProvider>(
+      builder: (paperProvider) {
+        // Only use simulation data - no dashboard fallback
+        return Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+                Theme.of(context).colorScheme.surface,
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
-              child: Column(
-                children: [
-                  // Timeframe selector
-                  _buildTimeframeSelector(),
-                  // Chart area - Takes full available height with dual scrolling
-                  Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: _buildScrollableChart(currentRate),
-                      ),
-                    ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Timeframe selector
+              _buildTimeframeSelector(),
+              // Chart area - Takes full available height with dual scrolling
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: _buildScrollableChart(null),
                   ),
-                ],
+                ),
               ),
-            );
-          },
+            ],
+          ),
         );
       },
     );
@@ -751,268 +677,191 @@ class _ComprehensivePaperTradingPageState
   }
 
   Widget _buildTradingFormSection() {
-    return GetBuilder<ForexProvider>(
-      builder: (forexProvider) {
-        return GetBuilder<PaperTradingProvider>(
-          builder: (paperProvider) {
-            // Get current price from simulation or forex data (same as home page)
-            double currentPrice = 0.0;
-            double bidPrice = 0.0;
-            double askPrice = 0.0;
-            double spread = 0.0;
+    return GetBuilder<PaperTradingProvider>(
+      builder: (paperProvider) {
+        // Get current price from simulation data only
+        double currentPrice = 0.0;
+        double bidPrice = 0.0;
+        double askPrice = 0.0;
+        double spread = 0.0;
 
-            // PRIORITIZE SIMULATION DATA for real-time updates in paper trading
-            ForexRate? currentRate;
+        // PRIORITIZE SIMULATION DATA for real-time updates in paper trading
+        if (paperProvider.isSimulationRunning &&
+            paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+          // Use simulation data for real-time updates
+          print('🔄 [TRADING_FORM] Using simulation data for $_selectedSymbol');
+          final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
+          currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
+          askPrice = currentPrice;
+          bidPrice = askPrice - (spreadPercentage * askPrice);
+          spread = askPrice - bidPrice;
+          print(
+            '🔄 [TRADING_FORM] Simulation price: $currentPrice, Ask: $askPrice, Bid: $bidPrice',
+          );
+        }
 
-            // First try simulation data (for real-time updates in paper trading)
-            if (paperProvider.isSimulationRunning &&
-                paperProvider.currentPrices.containsKey(_selectedSymbol)) {
-              // Use simulation data for real-time updates
-              print(
-                '🔄 [TRADING_FORM] Using simulation data for $_selectedSymbol',
-              );
-              final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-              currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
-              askPrice = currentPrice;
-              bidPrice = askPrice - (spreadPercentage * askPrice);
-              spread = askPrice - bidPrice;
-              print(
-                '🔄 [TRADING_FORM] Simulation price: $currentPrice, Ask: $askPrice, Bid: $bidPrice',
-              );
-            }
-            // Fallback to dashboard data (static data)
-            if (currentPrice == 0.0 && forexProvider.dashboardData != null) {
-              // Fallback to dashboard data
-              print(
-                '🔄 [TRADING_FORM] Using dashboard data for $_selectedSymbol',
-              );
-              final apiSymbol = _selectedSymbol.replaceAll('/', '');
+        // Update the current price for the AI recommender
 
-              // Find currency in dashboard data using converted symbol
-              final currency = forexProvider.dashboardData!.currencies
-                  .where((c) => c.pair == apiSymbol)
-                  .firstOrNull;
-              if (currency != null) {
-                // Extract currencies from pair (e.g., EURUSD -> EUR, USD)
-                final pair = currency.pair;
-                String fromCurrency, toCurrency;
-                if (pair.startsWith('USD')) {
-                  // USD pairs: USDJPY -> USD, JPY
-                  fromCurrency = 'USD';
-                  toCurrency = pair.substring(3);
-                } else {
-                  // Other pairs: EURUSD -> EUR, USD
-                  fromCurrency = pair.substring(0, 3);
-                  toCurrency = pair.substring(3);
-                }
-
-                currentRate = ForexRate(
-                  fromCurrency: fromCurrency,
-                  toCurrency: toCurrency,
-                  symbol: _selectedSymbol, // Use original format for display
-                  rate: currency.currentValue,
-                  timestamp: DateTime.now(),
-                  change: currency.tomorrowChange,
-                  changePercent: currency.tomorrowChangePercent,
-                );
-
-                // Calculate realistic spread using percentage formula: Bid ≈ Ask - (spread_percentage × Ask)
-                final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-                currentPrice = currentRate.rate;
-                askPrice = currentRate.rate; // Use current rate as ask price
-                bidPrice =
-                    askPrice -
-                    (spreadPercentage *
-                        askPrice); // Calculate bid using the formula
-                spread = askPrice - bidPrice; // Calculate actual spread
-                print(
-                  '🔄 [TRADING_FORM] Dashboard price: $currentPrice, Ask: $askPrice, Bid: $bidPrice',
-                );
-              }
-            }
-            // Fallback to regular forex rates
-            if (currentPrice == 0.0 &&
-                forexProvider.forexRates.containsKey(_selectedSymbol)) {
-              currentRate = forexProvider.forexRates[_selectedSymbol];
-              if (currentRate != null) {
-                final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
-                currentPrice = currentRate.rate;
-                askPrice = currentRate.rate;
-                bidPrice = askPrice - (spreadPercentage * askPrice);
-                spread = askPrice - bidPrice;
-              }
-            }
-
-            // Update the current price for the AI recommender
-
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.shadow.withOpacity(0.1),
-                    spreadRadius: 2,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                spreadRadius: 2,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Icon(Icons.trending_up, color: Colors.blue[600]),
-                        const SizedBox(width: 8),
-                        Text(
-                          'openNewPosition'.tr,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Enhanced price display
-                    if (currentPrice > 0) ...[
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.1),
-                              Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.05),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _selectedSymbol,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green[100],
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      'live'.tr,
-                                      style: TextStyle(
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  _buildPriceCard(
-                                    'bid'.tr,
-                                    bidPrice,
-                                    Colors.red[600]!,
-                                  ),
-                                  _buildPriceCard(
-                                    'ask'.tr,
-                                    askPrice,
-                                    Colors.green[600]!,
-                                  ),
-                                  _buildPriceCard(
-                                    'spread'.tr,
-                                    spread * 10000,
-                                    Colors.orange[600]!,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                    Icon(Icons.trending_up, color: Colors.blue[600]),
+                    const SizedBox(width: 8),
+                    Text(
+                      'openNewPosition'.tr,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // Trading form - Responsive layout
-                    Column(
-                      children: [
-                        // Trading pair and position type in separate rows for better responsiveness
-                        _buildEnhancedDropdown(
-                          'tradingPair'.tr,
-                          _selectedSymbol,
-                          forexProvider.availablePairs
-                              .map((pair) => pair['symbol']!)
-                              .toList(),
-                          (value) {
-                            setState(() {
-                              _selectedSymbol = value!;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Position type selector
-                        _buildPositionTypeSelector(),
-                        const SizedBox(height: 20),
-
-                        // AI Recommender Widget
-                        _buildAIRecommenderSection(),
-                        const SizedBox(height: 20),
-
-                        // Volume input
-                        _buildVolumeInput(),
-                        const SizedBox(height: 20),
-
-                        // Risk management section
-                        _buildRiskManagementSection(),
-                      ],
                     ),
-                    const SizedBox(height: 24),
-
-                    // Action buttons
-                    _buildActionButtons(paperProvider, currentPrice),
                   ],
                 ),
-              ),
-            );
-          },
+                const SizedBox(height: 24),
+
+                // Enhanced price display
+                if (currentPrice > 0) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.05),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _selectedSymbol,
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[100],
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'live'.tr,
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildPriceCard(
+                                'bid'.tr,
+                                bidPrice,
+                                Colors.red[600]!,
+                              ),
+                              _buildPriceCard(
+                                'ask'.tr,
+                                askPrice,
+                                Colors.green[600]!,
+                              ),
+                              _buildPriceCard(
+                                'spread'.tr,
+                                spread * 10000,
+                                Colors.orange[600]!,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Trading form - Responsive layout
+                Column(
+                  children: [
+                    // Trading pair and position type in separate rows for better responsiveness
+                    _buildEnhancedDropdown(
+                      'tradingPair'.tr,
+                      _selectedSymbol,
+                      _getSupportedCurrencyPairs(),
+                      (value) async {
+                        if (value != null) {
+                          await _changeCurrencyPair(value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Position type selector
+                    _buildPositionTypeSelector(),
+                    const SizedBox(height: 20),
+
+                    // AI Recommender Widget
+                    _buildAIRecommenderSection(),
+                    const SizedBox(height: 20),
+
+                    // Volume input
+                    _buildVolumeInput(),
+                    const SizedBox(height: 20),
+
+                    // Risk management section
+                    _buildRiskManagementSection(),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Action buttons
+                _buildActionButtons(paperProvider, currentPrice),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -1489,26 +1338,6 @@ class _ComprehensivePaperTradingPageState
     if (paperProvider.currentPrices.containsKey(_selectedSymbol)) {
       basePrice = paperProvider.currentPrices[_selectedSymbol]!;
     }
-    // Fallback to dashboard data
-    else if (Get.find<ForexProvider>().dashboardData != null) {
-      try {
-        String dashboardSymbol1 = _selectedSymbol.replaceAll('/', '');
-        String dashboardSymbol2 = _selectedSymbol;
-
-        Currency? currency;
-        try {
-          currency = Get.find<ForexProvider>().dashboardData!.currencies
-              .firstWhere((c) => c.pair == dashboardSymbol1);
-        } catch (e) {
-          currency = Get.find<ForexProvider>().dashboardData!.currencies
-              .firstWhere((c) => c.pair == dashboardSymbol2);
-        }
-
-        basePrice = currency.currentValue;
-      } catch (e) {
-        basePrice = 1.1000;
-      }
-    }
 
     // Generate initial data using the same logic as simulation service
     return RealisticDataGenerator.generateTimeframeData(
@@ -1577,29 +1406,6 @@ class _ComprehensivePaperTradingPageState
       print(
         '📊 [FULLSCREEN_CHART] Using simulation data: ${_selectedSymbol} = $currentPrice',
       );
-    }
-    // Fallback to dashboard data
-    else if (Get.find<ForexProvider>().dashboardData != null) {
-      try {
-        String dashboardSymbol1 = _selectedSymbol.replaceAll('/', '');
-        String dashboardSymbol2 = _selectedSymbol;
-
-        Currency? currency;
-        try {
-          currency = Get.find<ForexProvider>().dashboardData!.currencies
-              .firstWhere((c) => c.pair == dashboardSymbol1);
-        } catch (e) {
-          currency = Get.find<ForexProvider>().dashboardData!.currencies
-              .firstWhere((c) => c.pair == dashboardSymbol2);
-        }
-
-        currentPrice = currency.currentValue;
-        print(
-          '📊 [FULLSCREEN_CHART] Using dashboard data: ${_selectedSymbol} = $currentPrice',
-        );
-      } catch (e) {
-        print('📊 [FULLSCREEN_CHART] Using default price: $currentPrice');
-      }
     }
 
     print(
@@ -1936,77 +1742,58 @@ class _ComprehensivePaperTradingPageState
   }
 
   Widget _buildAIRecommenderSection() {
-    return GetBuilder<ForexProvider>(
-      builder: (forexProvider) {
-        final paperProvider = Get.find<PaperTradingProvider>();
-        // Get current price from dashboard data first, then simulation data
-        double currentPrice = 0.0;
-        Currency? currencyData;
-        if (forexProvider.dashboardData != null) {
-          // Convert symbol format to match API
-          final apiSymbol = _selectedSymbol.replaceAll('/', '');
-          currencyData = forexProvider.dashboardData!.currencies
-              .where((c) => c.pair == apiSymbol)
-              .firstOrNull;
+    final paperProvider = Get.find<PaperTradingProvider>();
+    // Get current price from simulation data only
+    double currentPrice = 0.0;
 
-          if (currencyData != null) {
-            currentPrice = currencyData.currentValue;
-          }
-        }
+    // Fallback to simulation data if dashboard data not available
+    if (paperProvider.isSimulationRunning &&
+        paperProvider.currentPrices.containsKey(_selectedSymbol)) {
+      currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
+    }
 
-        // Fallback to simulation data if dashboard data not available
-        if (currentPrice <= 0 &&
-            paperProvider.isSimulationRunning &&
-            paperProvider.currentPrices.containsKey(_selectedSymbol)) {
-          currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
-        }
-
-        if (currentPrice <= 0) {
-          return Container(
-            margin: const EdgeInsets.symmetric(vertical: 16),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.errorContainer.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Theme.of(
-                  context,
-                ).colorScheme.errorContainer.withOpacity(0.3),
+    if (currentPrice <= 0) {
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(
+              context,
+            ).colorScheme.errorContainer.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info, color: Theme.of(context).colorScheme.error),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '${'aiRecommender'.tr}: ${'waitingForPriceData'.tr}',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-            child: Row(
-              children: [
-                Icon(Icons.info, color: Theme.of(context).colorScheme.error),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '${'aiRecommender'.tr}: ${'waitingForPriceData'.tr}',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onErrorContainer,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
+          ],
+        ),
+      );
+    }
 
-        // Generate recent candles for technical analysis
-        final recentCandles = _generateRecentCandles(currentPrice);
+    // Generate recent candles for technical analysis
+    final recentCandles = _generateRecentCandles(currentPrice);
 
-        return AIRecommenderWidget(
-          symbol: _selectedSymbol,
-          currentPrice: currentPrice,
-          recentCandles: recentCandles,
-          currencyData: currencyData,
-          onRecommendationChanged: () {
-            // Optionally update UI based on recommendation
-            setState(() {});
-          },
-        );
+    return AIRecommenderWidget(
+      symbol: _selectedSymbol,
+      currentPrice: currentPrice,
+      recentCandles: recentCandles,
+      currencyData: null, // No currency data since we only use simulation data
+      onRecommendationChanged: () {
+        // Optionally update UI based on recommendation
+        setState(() {});
       },
     );
   }
@@ -2111,26 +1898,12 @@ class _ComprehensivePaperTradingPageState
   void _openPosition(PaperTradingProvider paperProvider, double currentPrice) {
     final volume = double.tryParse(_volumeController.text) ?? 0.1;
 
-    // Use dollar amounts directly for Stop Loss and Take Profit
-    double? stopLossDollars;
-    double? takeProfitDollars;
-
-    if (_stopLossController.text.isNotEmpty) {
-      stopLossDollars = double.tryParse(_stopLossController.text);
-    }
-
-    if (_takeProfitController.text.isNotEmpty) {
-      takeProfitDollars = double.tryParse(_takeProfitController.text);
-    }
-
     // Add position to paper trading
     paperProvider.openPosition(
       symbol: _selectedSymbol,
       type: _selectedType,
       volume: volume,
       price: currentPrice,
-      stopLossDollars: stopLossDollars,
-      takeProfitDollars: takeProfitDollars,
     );
 
     // Show success message
@@ -2273,40 +2046,12 @@ class _ComprehensivePaperTradingPageState
     Position position,
     PaperTradingProvider paperProvider,
   ) async {
-    // Get current price from simulation or forex data (same as home page)
+    // Get current price from simulation data only
     double currentPrice = 0.0;
 
     if (paperProvider.isSimulationRunning &&
         paperProvider.currentPrices.containsKey(position.symbol)) {
       currentPrice = paperProvider.currentPrices[position.symbol]!;
-    } else {
-      final forexProvider = Get.find<ForexProvider>();
-      // Try to get data from dashboard first, then fallback to rates
-      ForexRate? currentRate;
-      if (forexProvider.dashboardData != null) {
-        // Find currency in dashboard data
-        final currency = forexProvider.dashboardData!.currencies
-            .where((c) => c.pair == position.symbol)
-            .firstOrNull;
-        if (currency != null) {
-          currentRate = ForexRate(
-            fromCurrency: currency.pair.split('/')[0],
-            toCurrency: currency.pair.split('/')[1],
-            symbol: currency.pair,
-            rate: currency.currentValue,
-            timestamp: DateTime.now(),
-            change: currency.tomorrowChange,
-            changePercent: currency.tomorrowChangePercent,
-          );
-        }
-      } else {
-        // Fallback to regular forex rates
-        currentRate = forexProvider.forexRates[position.symbol];
-      }
-
-      if (currentRate != null) {
-        currentPrice = currentRate.rate;
-      }
     }
 
     if (currentPrice == 0.0) {

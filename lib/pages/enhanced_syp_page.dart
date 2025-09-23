@@ -5,7 +5,6 @@ import '../controllers/translation_controller.dart';
 import '../models/comprehensive_models.dart';
 import '../services/comprehensive_api_service.dart';
 
-
 class EnhancedSypPage extends StatefulWidget {
   const EnhancedSypPage({super.key});
 
@@ -22,7 +21,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize data when page loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadComprehensiveData();
@@ -52,34 +51,38 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
   @override
   Widget build(BuildContext context) {
     final translationController = Get.find<TranslationController>();
-    
-    return Obx(() => Directionality(
-      textDirection: translationController.isRTL ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildNewFlag(),
-              const SizedBox(width: 8),
-              Text('syrianPound'.tr),
+
+    return Obx(
+      () => Directionality(
+        textDirection: translationController.isRTL
+            ? TextDirection.rtl
+            : TextDirection.ltr,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildNewFlag(),
+                const SizedBox(width: 8),
+                Text('syrianPound'.tr),
+              ],
+            ),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () {
+                  _loadComprehensiveData();
+                },
+                tooltip: 'refresh'.tr,
+              ),
             ],
           ),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
-                _loadComprehensiveData();
-              },
-              tooltip: 'refresh'.tr,
-            ),
-          ],
+          body: _buildCurrentRatesTab(),
         ),
-        body: _buildCurrentRatesTab(),
       ),
-    ));
+    );
   }
 
   Widget _buildCurrentRatesTab() {
@@ -92,7 +95,11 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Theme.of(context).colorScheme.error),
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
             const SizedBox(height: 16),
             Text('Error: $_error'),
             const SizedBox(height: 16),
@@ -132,21 +139,29 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                         children: [
                           Row(
                             children: [
-                              Icon(IconlyBroken.swap, color: Colors.blue[700], size: 20),
+                              Icon(
+                                IconlyBroken.swap,
+                                color: Colors.blue[700],
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'USD/SYP',
-                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                           Text(
                             'blackMarketRate'.tr,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                           ),
                         ],
                       ),
@@ -154,17 +169,24 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            _comprehensiveData!.cityRates['damascus']?.formattedMid ?? '0.0',
-                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green[700],
-                            ),
+                            _comprehensiveData!
+                                    .cityRates['damascus']
+                                    ?.formattedMid ??
+                                '0.0',
+                            style: Theme.of(context).textTheme.headlineLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[700],
+                                ),
                           ),
                           Text(
                             'sypPerUsd'.tr,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
                           ),
                         ],
                       ),
@@ -174,18 +196,36 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildRateInfo('ask'.tr, _comprehensiveData!.cityRates['damascus']?.ask.toDouble() ?? 0.0, Colors.red[600]!),
-                      _buildRateInfo('bid'.tr, _comprehensiveData!.cityRates['damascus']?.bid.toDouble() ?? 0.0, Colors.green[600]!),
-                      _buildRateInfo('spread'.tr, _comprehensiveData!.cityRates['damascus']?.spread.toDouble() ?? 0.0, Colors.orange),
+                      _buildRateInfo(
+                        'ask'.tr,
+                        _comprehensiveData!.cityRates['damascus']?.ask
+                                .toDouble() ??
+                            0.0,
+                        Colors.red[600]!,
+                      ),
+                      _buildRateInfo(
+                        'bid'.tr,
+                        _comprehensiveData!.cityRates['damascus']?.bid
+                                .toDouble() ??
+                            0.0,
+                        Colors.green[600]!,
+                      ),
+                      _buildRateInfo(
+                        'spread'.tr,
+                        _comprehensiveData!.cityRates['damascus']?.spread
+                                .toDouble() ??
+                            0.0,
+                        Colors.orange,
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
           ),
-              
+
           const SizedBox(height: 16),
-          
+
           // Change Information
           Card(
             child: Padding(
@@ -231,9 +271,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               ),
             ),
           ),
-              
+
           const SizedBox(height: 16),
-          
+
           // OHLCV Data
           Card(
             child: Padding(
@@ -247,19 +287,38 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                       const SizedBox(width: 8),
                       Text(
                         'tradingData'.tr,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: _buildOhlcvInfo('open'.tr, _comprehensiveData!.ohlcv.open)),
-                      Expanded(child: _buildOhlcvInfo('high'.tr, _comprehensiveData!.ohlcv.high)),
-                      Expanded(child: _buildOhlcvInfo('low'.tr, _comprehensiveData!.ohlcv.low)),
-                      Expanded(child: _buildOhlcvInfo('close'.tr, _comprehensiveData!.ohlcv.close)),
+                      Expanded(
+                        child: _buildOhlcvInfo(
+                          'open'.tr,
+                          _comprehensiveData!.ohlcv.open,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildOhlcvInfo(
+                          'high'.tr,
+                          _comprehensiveData!.ohlcv.high,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildOhlcvInfo(
+                          'low'.tr,
+                          _comprehensiveData!.ohlcv.low,
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildOhlcvInfo(
+                          'close'.tr,
+                          _comprehensiveData!.ohlcv.close,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -277,9 +336,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               ),
             ),
           ),
-              
+
           const SizedBox(height: 16),
-          
+
           // City Comparison Section
           Card(
             child: Padding(
@@ -293,9 +352,8 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                       const SizedBox(width: 8),
                       Text(
                         'cityComparison'.tr,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -307,7 +365,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
           ),
 
           const SizedBox(height: 16),
-          
+
           // Currencies Grid
           Card(
             child: Padding(
@@ -321,9 +379,8 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                       const SizedBox(width: 8),
                       Text(
                         'currencies'.tr,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -335,12 +392,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
           ),
 
           const SizedBox(height: 16),
-          
+
           // Tomorrow's Prediction Card
-          Card(
-            child: _buildPredictionCard(),
-          ),
-   
+          Card(child: _buildPredictionCard()),
         ],
       ),
     );
@@ -348,17 +402,15 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
 
   Widget _buildCityComparison() {
     if (_comprehensiveData == null) return const SizedBox();
-    
+
     // Filter to show only aleppo and idlib (exclude damascus as it's shown in main card)
-    final comparisonCities = _comprehensiveData!.cityRates.entries
-        
-        .toList();
-    
+    final comparisonCities = _comprehensiveData!.cityRates.entries.toList();
+
     return Column(
       children: comparisonCities.map((entry) {
         final cityName = entry.key;
         final cityRate = entry.value;
-        
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
@@ -369,7 +421,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   Icon(
                     IconlyBroken.location,
                     size: 16,
-                    color: cityName == 'damascus' ? Colors.blue[600] : Colors.orange[600],
+                    color: cityName == 'damascus'
+                        ? Colors.blue[600]
+                        : Colors.orange[600],
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -387,28 +441,30 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   const SizedBox(width: 8),
                   Row(
                     children: [
-                      Icon(IconlyBroken.arrow_up_2, size: 12, color: Colors.red),
+                      Icon(
+                        IconlyBroken.arrow_up_2,
+                        size: 12,
+                        color: Colors.red,
+                      ),
                       const SizedBox(width: 2),
                       Text(
                         'Ask: ${cityRate.formattedAsk}',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.red, fontSize: 12),
                       ),
                     ],
                   ),
                   const SizedBox(width: 4),
                   Row(
                     children: [
-                      Icon(IconlyBroken.arrow_down_2, size: 12, color: Colors.green),
+                      Icon(
+                        IconlyBroken.arrow_down_2,
+                        size: 12,
+                        color: Colors.green,
+                      ),
                       const SizedBox(width: 2),
                       Text(
                         'Bid: ${cityRate.formattedBid}',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.green, fontSize: 12),
                       ),
                     ],
                   ),
@@ -423,9 +479,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
 
   Widget _buildCurrenciesGrid() {
     if (_comprehensiveData == null || _comprehensiveData!.currencies.isEmpty) {
-      return const Center(
-        child: Text('No currency data available'),
-      );
+      return const Center(child: Text('No currency data available'));
     }
 
     return GridView.builder(
@@ -445,7 +499,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     );
   }
 
-  Widget _buildCurrencyCard(Currency currency) {
+  Widget _buildCurrencyCard(CurrencyData currency) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -456,11 +510,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             // Currency name
             Row(
               children: [
-                Icon(
-                  IconlyBroken.wallet,
-                  size: 16,
-                  color: Colors.amber[600],
-                ),
+                Icon(IconlyBroken.wallet, size: 16, color: Colors.amber[600]),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -476,7 +526,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               ],
             ),
             const SizedBox(height: 8),
-            
+
             // Mid rate
             Text(
               currency.formattedMid,
@@ -486,7 +536,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               ),
             ),
             const SizedBox(height: 4),
-            
+
             // Ask and Bid
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -496,7 +546,11 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(IconlyBroken.arrow_up_2, size: 10, color: Colors.red[600]),
+                        Icon(
+                          IconlyBroken.arrow_up_2,
+                          size: 10,
+                          color: Colors.red[600],
+                        ),
                         const SizedBox(width: 2),
                         Text(
                           'ask'.tr,
@@ -522,7 +576,11 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(IconlyBroken.arrow_down_2, size: 10, color: Colors.green[600]),
+                        Icon(
+                          IconlyBroken.arrow_down_2,
+                          size: 10,
+                          color: Colors.green[600],
+                        ),
                         const SizedBox(width: 2),
                         Text(
                           'bid'.tr,
@@ -546,21 +604,22 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               ],
             ),
             const SizedBox(height: 4),
-            
+
             // Change info
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(IconlyBroken.arrow_up_2, size: 10, color: Colors.grey[600]),
+                    Icon(
+                      IconlyBroken.arrow_up_2,
+                      size: 10,
+                      color: Colors.grey[600],
+                    ),
                     const SizedBox(width: 2),
                     Text(
                       '${'change'.tr}:',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -569,7 +628,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: currency.isPositiveChange ? Colors.green : Colors.red,
+                    color: currency.isPositiveChange
+                        ? Colors.green
+                        : Colors.red,
                   ),
                 ),
               ],
@@ -580,14 +641,15 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               children: [
                 Row(
                   children: [
-                    Icon(IconlyBroken.discount, size: 10, color: Colors.grey[600]),
+                    Icon(
+                      IconlyBroken.discount,
+                      size: 10,
+                      color: Colors.grey[600],
+                    ),
                     const SizedBox(width: 2),
                     Text(
                       '${'changePercent'.tr}:',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -596,7 +658,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: currency.isPositiveChange ? Colors.green : Colors.red,
+                    color: currency.isPositiveChange
+                        ? Colors.green
+                        : Colors.red,
                   ),
                 ),
               ],
@@ -607,15 +671,14 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     );
   }
 
-
   Widget _buildRateInfo(String label, double value, Color color) {
     return Column(
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.grey[600],
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
         ),
         const SizedBox(height: 4),
         Text(
@@ -630,12 +693,14 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
   }
 
   // Helper methods for USD change calculations
-  Currency? _getUsdCurrency() {
+  CurrencyData? _getUsdCurrency() {
     if (_comprehensiveData == null) return null;
     try {
-      return _comprehensiveData!.currencies.firstWhere((currency) => 
-          currency.name.toLowerCase().contains('usd') || 
-          currency.name.toLowerCase().contains('dollar'));
+      return _comprehensiveData!.currencies.firstWhere(
+        (currency) =>
+            currency.name.toLowerCase().contains('usd') ||
+            currency.name.toLowerCase().contains('dollar'),
+      );
     } catch (e) {
       return null;
     }
@@ -646,11 +711,11 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     if (usdCurrency?.previousRates == null) {
       return '0 SYP'; // No previous rates available
     }
-    
+
     final currentMid = _comprehensiveData!.cityRates['damascus']?.mid ?? 0.0;
     final previousMid = usdCurrency!.previousRates!.mid;
     final change = currentMid - previousMid;
-    
+
     return '${change > 0 ? '+' : ''}${change.toStringAsFixed(1)} SYP';
   }
 
@@ -659,12 +724,12 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     if (usdCurrency?.previousRates == null) {
       return '0.00%'; // No previous rates available
     }
-    
+
     final currentMid = _comprehensiveData!.cityRates['damascus']?.mid ?? 0.0;
     final previousMid = usdCurrency!.previousRates!.mid;
-    
+
     if (previousMid == 0) return '0.00%';
-    
+
     final changePercentage = ((currentMid - previousMid) / previousMid) * 100;
     return '${changePercentage > 0 ? '+' : ''}${changePercentage.toStringAsFixed(2)}%';
   }
@@ -674,11 +739,11 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     if (usdCurrency?.previousRates == null) {
       return Colors.grey; // No previous rates available
     }
-    
+
     final currentMid = _comprehensiveData!.cityRates['damascus']?.mid ?? 0.0;
     final previousMid = usdCurrency!.previousRates!.mid;
     final change = currentMid - previousMid;
-    
+
     return change >= 0 ? Colors.green : Colors.red;
   }
 
@@ -686,18 +751,18 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     if (_comprehensiveData == null) {
       return Container(
         padding: const EdgeInsets.all(16),
-          child: Center(
-            child: Text(
-              'noPredictionData'.tr,
-              style: const TextStyle(color: Colors.grey),
-            ),
+        child: Center(
+          child: Text(
+            'noPredictionData'.tr,
+            style: const TextStyle(color: Colors.grey),
           ),
+        ),
       );
     }
 
     final prediction = _comprehensiveData!.damascusPrediction;
     final currentRate = _comprehensiveData!.cityRates['damascus'];
-    
+
     if (currentRate == null) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -714,8 +779,10 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     final currentMid = currentRate.mid;
     final predictedMid = prediction.mid;
     final change = predictedMid - currentMid;
-    final changePercentage = currentMid != 0 ? (change / currentMid) * 100 : 0.0;
-    
+    final changePercentage = currentMid != 0
+        ? (change / currentMid) * 100
+        : 0.0;
+
     final isPositiveChange = change >= 0;
     final changeColor = isPositiveChange ? Colors.green : Colors.red;
 
@@ -724,10 +791,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: changeColor.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: changeColor.withOpacity(0.3), width: 1),
         boxShadow: [
           BoxShadow(
             color: changeColor.withOpacity(0.1),
@@ -744,11 +808,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             children: [
               Row(
                 children: [
-                  Icon(
-                    IconlyBroken.chart,
-                    color: changeColor,
-                    size: 18,
-                  ),
+                  Icon(IconlyBroken.chart, color: changeColor, size: 18),
                   const SizedBox(width: 8),
                   Text(
                     'tomorrowsPrediction'.tr,
@@ -770,7 +830,9 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isPositiveChange ? IconlyBroken.arrow_up_2 : IconlyBroken.arrow_down_2,
+                      isPositiveChange
+                          ? IconlyBroken.arrow_up_2
+                          : IconlyBroken.arrow_down_2,
                       size: 12,
                       color: Colors.white,
                     ),
@@ -789,7 +851,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Main prediction value
           Text(
             prediction.formattedMid,
@@ -808,23 +870,35 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Trading details
           Row(
             children: [
               Expanded(
-                child: _buildCompactDetail('ask'.tr, prediction.formattedAsk, Colors.red[600]!),
+                child: _buildCompactDetail(
+                  'ask'.tr,
+                  prediction.formattedAsk,
+                  Colors.red[600]!,
+                ),
               ),
               Expanded(
-                child: _buildCompactDetail('bid'.tr, prediction.formattedBid, Colors.green[600]!),
+                child: _buildCompactDetail(
+                  'bid'.tr,
+                  prediction.formattedBid,
+                  Colors.green[600]!,
+                ),
               ),
               Expanded(
-                child: _buildCompactDetail('spread'.tr, prediction.spread.toString(), Colors.grey[600]!),
+                child: _buildCompactDetail(
+                  'spread'.tr,
+                  prediction.spread.toString(),
+                  Colors.grey[600]!,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Change info
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -876,45 +950,14 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
     );
   }
 
-  Widget _buildTradingDetail(String label, String value, Color color, IconData icon) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildOhlcvInfo(String label, double value) {
     return Column(
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.grey[600],
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
         ),
         const SizedBox(height: 4),
         Text(
@@ -924,7 +967,6 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
       ],
     );
   }
-
 
   Widget _buildNewFlag() {
     return Container(
@@ -938,10 +980,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
         children: [
           // Green stripe
           Expanded(
-            child: Container(
-              width: double.infinity,
-              color: Colors.green[600],
-            ),
+            child: Container(width: double.infinity, color: Colors.green[600]),
           ),
           // White stripe with stars
           Expanded(
@@ -951,20 +990,13 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildStar(),
-                  _buildStar(),
-                  _buildStar(),
-                ],
+                children: [_buildStar(), _buildStar(), _buildStar()],
               ),
             ),
           ),
           // Black stripe
           Expanded(
-            child: Container(
-              width: double.infinity,
-              color: Colors.black,
-            ),
+            child: Container(width: double.infinity, color: Colors.black),
           ),
         ],
       ),

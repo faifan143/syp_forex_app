@@ -1,0 +1,68 @@
+# Environment Variables for Forex App
+# Copy this file to .env and update the values
+
+# Flask API Server Configuration
+FOREX_API_HOST=localhost
+FOREX_API_PORT=5001
+SYP_API_HOST=localhost
+SYP_API_PORT=5002
+MT5_API_HOST=localhost
+MT5_API_PORT=8080
+
+# Flask Server Settings
+FLASK_ENV=development
+FLASK_DEBUG=true
+FLASK_HOST=0.0.0.0
+FLASK_PORT=5001
+
+# Database Configuration (for Flask server)
+DATABASE_URL=postgresql://forex:password@localhost:5432/forex_db
+POSTGRES_DB=forex_db
+POSTGRES_USER=forex
+POSTGRES_PASSWORD=password
+
+# Redis Cache (for Flask server)
+REDIS_URL=redis://localhost:6379/0
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# API Keys (for Flask server)
+EXCHANGE_RATE_API_KEY=your_exchange_rate_api_key
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key
+YAHOO_FINANCE_API_KEY=your_yahoo_finance_api_key
+
+# ML Model Configuration (Flask server)
+ML_MODEL_PATH=/app/models
+LSTM_MODEL_PATH=/app/models/lstm_model.pkl
+TRANSFORMER_MODEL_PATH=/app/models/transformer_model.pkl
+ENSEMBLE_MODEL_PATH=/app/models/ensemble_model.pkl
+
+# Flask Server Performance
+FLASK_WORKERS=4
+FLASK_THREADS=2
+FLASK_MAX_REQUESTS=1000
+FLASK_TIMEOUT=30
+
+# Logging Configuration
+LOG_LEVEL=INFO
+LOG_FILE=/app/logs/forex_api.log
+ENABLE_REQUEST_LOGGING=true
+ENABLE_RESPONSE_LOGGING=true
+
+# Security Settings
+SECRET_KEY=your_secret_key_here
+JWT_SECRET_KEY=your_jwt_secret_key
+API_RATE_LIMIT=1000
+API_RATE_WINDOW=3600
+
+# Monitoring and Health Checks
+HEALTH_CHECK_INTERVAL=30
+METRICS_ENABLED=true
+PROMETHEUS_PORT=9090
+
+# Development Settings
+DEBUG_MODE=true
+MOCK_DATA=false
+USE_REAL_API=true
+CACHE_ENABLED=true
+CACHE_TTL=86400

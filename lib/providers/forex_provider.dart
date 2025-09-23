@@ -22,9 +22,7 @@ class ForexProvider extends GetxController {
   // Caching
   DateTime? _lastDashboardFetch;
   DateTime? _lastRatesFetch;
-  static const Duration _cacheDuration = Duration(
-    minutes: 5,
-  ); // Cache for 5 minutes
+  static const Duration _cacheDuration = Duration(days: 1); // Cache for 1 day
 
   // Services
   final MarketSimulationService _marketService = MarketSimulationService();
@@ -51,7 +49,7 @@ class ForexProvider extends GetxController {
       _lastRatesFetch != null &&
       DateTime.now().difference(_lastRatesFetch!) < _cacheDuration;
 
-  // Available pairs and timeframes (hardcoded for simulation)
+  // Available pairs and timeframes (configured for simulation)
   List<Map<String, String>> get availablePairs => [
     {'from': 'EUR', 'to': 'USD', 'symbol': 'EUR/USD'},
     {'from': 'GBP', 'to': 'USD', 'symbol': 'GBP/USD'},
@@ -61,7 +59,7 @@ class ForexProvider extends GetxController {
     {'from': 'NZD', 'to': 'USD', 'symbol': 'NZD/USD'},
     {'from': 'CHF', 'to': 'USD', 'symbol': 'USD/CHF'},
     {'from': 'TRY', 'to': 'USD', 'symbol': 'USD/TRY'},
-    {'from': 'CNH', 'to': 'USD', 'symbol': 'CNH/USD'},
+    {'from': 'CNH', 'to': 'USD', 'symbol': 'USD/CNY'},
     {'from': 'SEK', 'to': 'USD', 'symbol': 'USD/SEK'},
   ];
 

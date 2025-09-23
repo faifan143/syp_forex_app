@@ -183,11 +183,9 @@ class AIRecommenderService {
     // Calculate confidence based on data strength
     final maxScore = max(buyScore, sellScore);
     ConfidenceLevel confidence;
-    if (maxScore > 0.7) {
-      confidence = ConfidenceLevel.veryHigh;
-    } else if (maxScore > 0.5) {
+    if (maxScore > 0.6) {
       confidence = ConfidenceLevel.high;
-    } else if (maxScore > 0.3) {
+    } else if (maxScore > 0.4) {
       confidence = ConfidenceLevel.medium;
     } else {
       confidence = ConfidenceLevel.low;
@@ -385,13 +383,11 @@ class AIRecommenderService {
   String _getTimeHorizon(ConfidenceLevel confidence) {
     switch (confidence) {
       case ConfidenceLevel.low:
-        return 'timeHorizon1To2Hours'.tr;
+        return 'shortTerm'.tr;
       case ConfidenceLevel.medium:
-        return 'timeHorizon2To4Hours'.tr;
+        return 'mediumTerm'.tr;
       case ConfidenceLevel.high:
-        return 'timeHorizon4To8Hours'.tr;
-      case ConfidenceLevel.veryHigh:
-        return 'timeHorizon8To24Hours'.tr;
+        return 'longTerm'.tr;
     }
   }
 

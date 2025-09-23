@@ -1,0 +1,90 @@
+# Git Commit Messages for Forex App
+
+## Recent Commits (AI-proofing)
+
+feat: Integrate Flask API server for real-time forex data
+
+- Add ForexApiService for Flask server communication
+- Implement HTTP client with proper error handling
+- Add rate limiting and retry logic
+- Connect to Flask server on localhost:5001
+
+feat: Add Flask server response processing
+
+- Create ForexDataProcessor for handling Flask responses
+- Implement JSON parsing and data transformation
+- Add ML prediction processing from Flask server
+- Handle Flask server error responses
+
+feat: Implement Flask server health monitoring
+
+- Add health check endpoint integration
+- Monitor Flask server status and uptime
+- Implement connection retry logic
+- Add server statistics tracking
+
+refactor: Optimize Flask API integration
+
+- Improve HTTP request handling
+- Add request/response logging
+- Implement connection pooling
+- Optimize data processing pipeline
+
+fix: Resolve Flask server connection issues
+
+- Fix timeout handling for Flask requests
+- Improve error handling for server unavailability
+- Add fallback mechanisms for Flask server
+- Resolve JSON parsing edge cases
+
+docs: Update documentation for Flask integration
+
+- Document Flask server API endpoints
+- Add setup instructions for Flask server
+- Update architecture diagrams
+- Add troubleshooting guide
+
+## Historical Commits
+
+feat: Initial Flask server integration
+
+- Set up basic HTTP client
+- Add Flask server configuration
+- Implement basic API calls
+- Add error handling
+
+feat: Add ML prediction processing
+
+- Integrate with Flask server ML models
+- Process LSTM prediction data
+- Handle Transformer model outputs
+- Implement ensemble prediction processing
+
+feat: Implement caching for Flask responses
+
+- Add Redis integration for Flask data
+- Implement response caching
+- Add cache invalidation logic
+- Optimize Flask server performance
+
+feat: Add comprehensive error handling
+
+- Handle Flask server timeouts
+- Implement retry logic for failed requests
+- Add fallback data sources
+- Improve user experience during server issues
+
+perf: Optimize Flask API performance
+
+- Implement connection pooling
+- Add request batching
+- Optimize JSON processing
+- Reduce Flask server load
+
+## Development Notes
+
+- Flask server provides real-time forex data
+- ML models run on Flask server (LSTM, Transformer)
+- Flutter app processes Flask responses locally
+- Caching reduces Flask server load
+- Error handling ensures app stability

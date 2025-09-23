@@ -37,6 +37,7 @@ dependencies:
 
   # For HTTP API calls
   http: ^1.1.0
+  dio: ^5.4.0
 
   # For image caching
   cached_network_image: ^3.3.0

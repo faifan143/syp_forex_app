@@ -1,3 +1,7 @@
+// Forex Trading App - Flutter Frontend
+// This app connects to a Forex API server for real-time data and ML predictions
+// The Forex API server provides LSTM and Transformer model predictions via REST API
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'providers/syp_provider.dart';
@@ -31,7 +35,10 @@ class SypForexApp extends StatelessWidget {
         brightness: Brightness.light,
       ),
       darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
         useMaterial3: true,
         brightness: Brightness.dark,
       ),
@@ -65,7 +72,7 @@ class AppInitializer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onboardingController = Get.find<OnboardingController>();
-    
+
     return Obx(() {
       if (onboardingController.isOnboardingCompleted) {
         return const MainNavigationPage();
@@ -85,7 +92,8 @@ class MainNavigationPage extends StatefulWidget {
 
 class _MainNavigationPageState extends State<MainNavigationPage> {
   int _selectedIndex = 0;
-  final TranslationController _translationController = Get.find<TranslationController>();
+  final TranslationController _translationController =
+      Get.find<TranslationController>();
 
   static const List<Widget> _pages = [
     HomePage(),
@@ -112,12 +120,11 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       ];
 
       return Directionality(
-        textDirection: _translationController.isRTL ? TextDirection.rtl : TextDirection.ltr,
+        textDirection: _translationController.isRTL
+            ? TextDirection.rtl
+            : TextDirection.ltr,
         child: Scaffold(
-          body: IndexedStack(
-            index: _selectedIndex,
-            children: _pages,
-          ),
+          body: IndexedStack(index: _selectedIndex, children: _pages),
           bottomNavigationBar: BottomNavigationBar(
             type: BottomNavigationBarType.fixed,
             currentIndex: _selectedIndex,

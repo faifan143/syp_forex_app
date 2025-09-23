@@ -14,10 +14,16 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     // Load forex dashboard data when page loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final forexProvider = Get.find<ForexProvider>();
-      forexProvider.loadForexDashboard(forceRefresh: true);
+      await forexProvider.loadForexDashboard(forceRefresh: true);
     });
+  }
+
+  @override
+  void dispose() {
+    // Don't cancel the timer here - let the provider manage it
+    super.dispose();
   }
 
   @override
@@ -29,6 +35,7 @@ class _HomePageState extends State<HomePage> {
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
+            fontSize: 18,
           ),
         ),
         backgroundColor: Colors.blue[800],
@@ -49,9 +56,9 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
+            onPressed: () async {
               final forexProvider = Get.find<ForexProvider>();
-              forexProvider.loadForexDashboard(forceRefresh: true);
+              await forexProvider.loadForexDashboard(forceRefresh: true);
             },
             tooltip: 'refresh'.tr,
           ),
@@ -59,11 +66,13 @@ class _HomePageState extends State<HomePage> {
       ),
       body: GetBuilder<ForexProvider>(
         builder: (forexProvider) {
-          if (forexProvider.isLoadingDashboard || forexProvider.isLoadingRates) {
+          if (forexProvider.isLoadingDashboard ||
+              forexProvider.isLoadingRates) {
             return _buildLoadingState();
           }
 
-          if (forexProvider.dashboardError != null || forexProvider.ratesError != null) {
+          if (forexProvider.dashboardError != null ||
+              forexProvider.ratesError != null) {
             return _buildErrorState(forexProvider);
           }
 
@@ -71,14 +80,14 @@ class _HomePageState extends State<HomePage> {
           if (forexProvider.dashboardData != null) {
             return _buildDashboardView(forexProvider.dashboardData!);
           }
-          
+
           // If dashboard failed, show error message
           if (forexProvider.dashboardError != null) {
             return _buildDashboardErrorState(forexProvider);
           }
 
           final rates = forexProvider.forexRates.values.toList();
-          
+
           if (rates.isEmpty) {
             return _buildEmptyState();
           }
@@ -99,9 +108,9 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 16),
           Text(
             'loadingForexData'.tr,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[600],
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
           ),
         ],
       ),
@@ -116,25 +125,21 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Colors.red[400],
-            ),
+            Icon(Icons.error_outline, size: 48, color: Colors.red[400]),
             const SizedBox(height: 16),
             Text(
               'errorLoadingData'.tr,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               forexProvider.dashboardError ?? forexProvider.ratesError!,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -144,7 +149,10 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(Icons.refresh, size: 18),
               label: Text('retry'.tr),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -161,25 +169,21 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.warning_outlined,
-              size: 48,
-              color: Colors.orange[400],
-            ),
+            Icon(Icons.warning_outlined, size: 48, color: Colors.orange[400]),
             const SizedBox(height: 16),
             Text(
               'dashboardUnavailable'.tr,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
-              'The forex dashboard API is not available. Please check if the backend server is running on localhost:5001',
+              'The forex dashboard API is not available. Please check the server configuration in settings.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -189,7 +193,10 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(Icons.refresh, size: 18),
               label: Text('retry'.tr),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -206,17 +213,13 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.description_outlined,
-              size: 48,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.description_outlined, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'noDataAvailable'.tr,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -259,15 +262,15 @@ class _HomePageState extends State<HomePage> {
             children: [
               Text(
                 rate.symbol,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               Text(
                 rate.rate.toStringAsFixed(4),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -277,15 +280,15 @@ class _HomePageState extends State<HomePage> {
             children: [
               Text(
                 '${rate.fromCurrency} to ${rate.toCurrency}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[600],
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
               ),
               Text(
                 _formatDateTime(rate.timestamp),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[500],
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey[500]),
               ),
             ],
           ),
@@ -297,7 +300,7 @@ class _HomePageState extends State<HomePage> {
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inMinutes < 1) {
       return 'justNow'.tr;
     } else if (difference.inMinutes < 60) {
@@ -313,10 +316,17 @@ class _HomePageState extends State<HomePage> {
   String _getDayName(int dayIndex) {
     final now = DateTime.now();
     final targetDate = now.add(Duration(days: dayIndex + 1));
-    final weekdays = ['monday'.tr, 'tuesday'.tr, 'wednesday'.tr, 'thursday'.tr, 'friday'.tr, 'saturday'.tr, 'sunday'.tr];
+    final weekdays = [
+      'monday'.tr,
+      'tuesday'.tr,
+      'wednesday'.tr,
+      'thursday'.tr,
+      'friday'.tr,
+      'saturday'.tr,
+      'sunday'.tr,
+    ];
     return weekdays[targetDate.weekday - 1];
   }
-
 
   // Build enhanced dashboard view with predictions
   Widget _buildDashboardView(ForexDashboardResponse dashboard) {
@@ -339,7 +349,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildCompactCurrencyCard(Currency currency) {
     final isUp = currency.tomorrowChange >= 0;
     final changeColor = isUp ? Colors.green : Colors.red;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -364,7 +374,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: changeColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -392,7 +405,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          
+
           // Current price and change
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -405,84 +418,90 @@ class _HomePageState extends State<HomePage> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                Row(
-                  children: [
-                    Text(
-                      isUp ? '+${currency.tomorrowChange.toStringAsFixed(4)}' : currency.tomorrowChange.toStringAsFixed(4),
-                      style: TextStyle(
-                        color: changeColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      currency.formattedTomorrowChangePercent,
-                      style: TextStyle(
-                        color: changeColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
+                // Row(
+                //   children: [
+                //     Text(
+                //       isUp
+                //           ? '+${currency.tomorrowChange.toStringAsFixed(4)}'
+                //           : currency.tomorrowChange.toStringAsFixed(4),
+                //       style: TextStyle(
+                //         color: changeColor,
+                //         fontWeight: FontWeight.w600,
+                //         fontSize: 14,
+                //       ),
+                //     ),
+                //     const SizedBox(width: 4),
+                //     Text(
+                //       currency.formattedTomorrowChangePercent,
+                //       style: TextStyle(
+                //         color: changeColor,
+                //         fontWeight: FontWeight.w600,
+                //         fontSize: 14,
+                //       ),
+                //     ),
+                //   ],
+                // ),
               ],
             ),
           ),
-          
-          const SizedBox(height: 12),
-          
-          // Tomorrow prediction
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.calendar_today,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'tomorrow'.tr,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  currency.tomorrowPrediction.toStringAsFixed(4),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isUp ? '+${currency.tomorrowChange.toStringAsFixed(4)}' : currency.tomorrowChange.toStringAsFixed(4),
-                  style: TextStyle(
-                    color: changeColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  currency.formattedTomorrowChangePercent,
-                  style: TextStyle(
-                    color: changeColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
+
+          // const SizedBox(height: 12),
+
+          // // Tomorrow prediction
+          // Container(
+          //   margin: const EdgeInsets.symmetric(horizontal: 16),
+          //   padding: const EdgeInsets.all(12),
+          //   decoration: BoxDecoration(
+          //     color: Theme.of(
+          //       context,
+          //     ).colorScheme.surfaceVariant.withOpacity(0.3),
+          //     borderRadius: BorderRadius.circular(8),
+          //   ),
+          //   child: Row(
+          //     children: [
+          //       Icon(
+          //         Icons.calendar_today,
+          //         size: 16,
+          //         color: Theme.of(context).colorScheme.primary,
+          //       ),
+          //       const SizedBox(width: 8),
+          //       Text(
+          //         'tomorrow'.tr,
+          //         style: Theme.of(
+          //           context,
+          //         ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          //       ),
+          //       const Spacer(),
+          //       Text(
+          //         currency.tomorrowPrediction.toStringAsFixed(4),
+          //         style: Theme.of(
+          //           context,
+          //         ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          //       ),
+          //       const SizedBox(width: 8),
+          //       Text(
+          //         isUp
+          //             ? '+${currency.tomorrowChange.toStringAsFixed(4)}'
+          //             : currency.tomorrowChange.toStringAsFixed(4),
+          //         style: TextStyle(
+          //           color: changeColor,
+          //           fontWeight: FontWeight.w600,
+          //           fontSize: 12,
+          //         ),
+          //       ),
+          //       const SizedBox(width: 4),
+          //       Text(
+          //         currency.formattedTomorrowChangePercent,
+          //         style: TextStyle(
+          //           color: changeColor,
+          //           fontWeight: FontWeight.w600,
+          //           fontSize: 12,
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
+
           // 7-Day Predictions (if available)
           if (currency.forecast7Days.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -490,7 +509,9 @@ class _HomePageState extends State<HomePage> {
               margin: const EdgeInsets.symmetric(horizontal: 16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
+                color: Theme.of(
+                  context,
+                ).colorScheme.surfaceVariant.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -516,27 +537,32 @@ class _HomePageState extends State<HomePage> {
                     final dayIndex = entry.key;
                     final prediction = entry.value;
                     final dayName = _getDayName(dayIndex);
-                    
+
                     // Calculate day-to-day change for trend analysis
                     double change = 0.0;
                     double changePercent = 0.0;
                     bool isDayUp = false;
                     Color dayChangeColor = Colors.grey;
-                    
+
                     if (dayIndex == 0) {
                       // For first day, show change from current value
                       change = prediction - currency.currentValue;
-                      changePercent = currency.currentValue != 0 ? (change / currency.currentValue) * 100 : 0.0;
+                      changePercent = currency.currentValue != 0
+                          ? (change / currency.currentValue) * 100
+                          : 0.0;
                     } else {
                       // For subsequent days, show change from previous day
-                      final previousDayPrediction = currency.forecast7Days[dayIndex - 1];
+                      final previousDayPrediction =
+                          currency.forecast7Days[dayIndex - 1];
                       change = prediction - previousDayPrediction;
-                      changePercent = previousDayPrediction != 0 ? (change / previousDayPrediction) * 100 : 0.0;
+                      changePercent = previousDayPrediction != 0
+                          ? (change / previousDayPrediction) * 100
+                          : 0.0;
                     }
-                    
+
                     isDayUp = change >= 0;
                     dayChangeColor = isDayUp ? Colors.green : Colors.red;
-                    
+
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Row(
@@ -544,23 +570,25 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Text(
                             dayName,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.grey[600]),
                           ),
                           Row(
                             children: [
                               Text(
                                 prediction.toStringAsFixed(4),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                change.abs() < 0.001 
-                                  ? (isDayUp ? '+${change.toStringAsFixed(6)}' : change.toStringAsFixed(6))
-                                  : (isDayUp ? '+${change.toStringAsFixed(5)}' : change.toStringAsFixed(5)),
+                                change.abs() < 0.001
+                                    ? (isDayUp
+                                          ? '+${change.toStringAsFixed(6)}'
+                                          : change.toStringAsFixed(6))
+                                    : (isDayUp
+                                          ? '+${change.toStringAsFixed(5)}'
+                                          : change.toStringAsFixed(5)),
                                 style: TextStyle(
                                   color: dayChangeColor,
                                   fontWeight: FontWeight.w600,
@@ -569,9 +597,13 @@ class _HomePageState extends State<HomePage> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                changePercent.abs() < 0.01 
-                                  ? (isDayUp ? '+${changePercent.toStringAsFixed(3)}%' : '${changePercent.toStringAsFixed(3)}%')
-                                  : (isDayUp ? '+${changePercent.toStringAsFixed(2)}%' : '${changePercent.toStringAsFixed(2)}%'),
+                                changePercent.abs() < 0.01
+                                    ? (isDayUp
+                                          ? '+${changePercent.toStringAsFixed(3)}%'
+                                          : '${changePercent.toStringAsFixed(3)}%')
+                                    : (isDayUp
+                                          ? '+${changePercent.toStringAsFixed(2)}%'
+                                          : '${changePercent.toStringAsFixed(2)}%'),
                                 style: TextStyle(
                                   color: dayChangeColor,
                                   fontWeight: FontWeight.w600,
@@ -584,11 +616,100 @@ class _HomePageState extends State<HomePage> {
                       ),
                     );
                   }),
+                  
+                  // Weekly Summary (محصلة)
+                  if (currency.forecast7Days.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.calculate,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'محصلة الأسبوع',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              // Calculate total weekly change
+                              Builder(
+                                builder: (context) {
+                                  final firstDayValue = currency.currentValue;
+                                  final lastDayValue = currency.forecast7Days.last;
+                                  final totalChange = lastDayValue - firstDayValue;
+                                  final totalChangePercent = firstDayValue != 0
+                                      ? (totalChange / firstDayValue) * 100
+                                      : 0.0;
+                                  final isWeekUp = totalChange >= 0;
+                                  final weekChangeColor = isWeekUp ? Colors.green : Colors.red;
+                                  
+                                  return Row(
+                                    children: [
+                                      Text(
+                                        totalChange.abs() < 0.001
+                                            ? (isWeekUp
+                                                  ? '+${totalChange.toStringAsFixed(6)}'
+                                                  : totalChange.toStringAsFixed(6))
+                                            : (isWeekUp
+                                                  ? '+${totalChange.toStringAsFixed(5)}'
+                                                  : totalChange.toStringAsFixed(5)),
+                                        style: TextStyle(
+                                          color: weekChangeColor,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        totalChangePercent.abs() < 0.01
+                                            ? (isWeekUp
+                                                  ? '+${totalChangePercent.toStringAsFixed(3)}%'
+                                                  : '${totalChangePercent.toStringAsFixed(3)}%')
+                                            : (isWeekUp
+                                                  ? '+${totalChangePercent.toStringAsFixed(2)}%'
+                                                  : '${totalChangePercent.toStringAsFixed(2)}%'),
+                                        style: TextStyle(
+                                          color: weekChangeColor,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
-          
+
           const SizedBox(height: 16),
         ],
       ),

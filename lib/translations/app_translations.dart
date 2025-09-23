@@ -422,7 +422,7 @@ class AppTranslations extends Translations {
       'nzdUsd': 'NZD/USD',
       'usdChf': 'USD/CHF',
       'usdTry': 'USD/TRY',
-      'cnhUsd': 'CNH/USD',
+      'cnhUsd': 'USD/CNY',
       'usdSek': 'USD/SEK',
 
       // Additional Paper Trading
@@ -587,6 +587,9 @@ class AppTranslations extends Translations {
       'timeHorizon2To4Hours': '2-4 hours',
       'timeHorizon4To8Hours': '4-8 hours',
       'timeHorizon8To24Hours': '8-24 hours',
+      'shortTerm': 'Short Term',
+      'mediumTerm': 'Medium Term',
+      'longTerm': 'Long Term',
 
       // AI Recommender Real Data Analysis
       'tomorrowTrendUp': 'Tomorrow trend is upward',
@@ -1013,7 +1016,7 @@ class AppTranslations extends Translations {
       'nzdUsd': 'NZD/USD',
       'usdChf': 'USD/CHF',
       'usdTry': 'USD/TRY',
-      'cnhUsd': 'CNH/USD',
+      'cnhUsd': 'USD/CNY',
       'usdSek': 'USD/SEK',
 
       // Additional Paper Trading
@@ -1175,6 +1178,9 @@ class AppTranslations extends Translations {
       'timeHorizon2To4Hours': '2-4 ساعات',
       'timeHorizon4To8Hours': '4-8 ساعات',
       'timeHorizon8To24Hours': '8-24 ساعة',
+      'shortTerm': 'قصير المدى',
+      'mediumTerm': 'متوسط المدى',
+      'longTerm': 'طويل المدى',
 
       // AI Recommender Real Data Analysis
       'tomorrowTrendUp': 'اتجاه الغد صاعد',

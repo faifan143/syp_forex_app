@@ -10,35 +10,43 @@ class SypApiService {
   static const String _logTag = '🇸🇾 SYP_API';
 
   // Helper method for debug logging
-  static void _log(String message, {String? method, dynamic data, String level = 'info'}) {
+  static void _log(
+    String message, {
+    String? method,
+    dynamic data,
+    String level = 'info',
+  }) {
     // Always log for now
-    
+
     final timestamp = DateTime.now().toIso8601String();
-    final logMessage = '[$_logTag] [$timestamp] ${method != null ? '[$method] ' : ''}$message';
-    
+    final logMessage =
+        '[$_logTag] [$timestamp] ${method != null ? '[$method] ' : ''}$message';
+
     developer.log(logMessage, name: 'SYP_Forex_App');
     print(logMessage);
-    
-    if (data != null) {
-      print('[$_logTag] Data: ${json.encode(data)}');
-    }
   }
 
   // Health check
   static Future<Map<String, dynamic>> healthCheck() async {
     const method = 'healthCheck';
-    
+
     try {
       _log('🚀 Checking SYP API health', method: method, level: 'info');
-      
-      final response = await http.get(
-        Uri.parse(ApiConfigService.getSypApiUrl('/health')),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+
+      final response = await http
+          .get(
+            Uri.parse(ApiConfigService.getSypApiUrl('/health')),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        _log('✅ SYP API health check successful', method: method, level: 'info');
+        _log(
+          '✅ SYP API health check successful',
+          method: method,
+          level: 'info',
+        );
         return jsonData;
       } else {
         throw Exception('SYP API health check failed: ${response.statusCode}');
@@ -53,18 +61,28 @@ class SypApiService {
   static Future<Map<String, dynamic>> getCurrentRates({String? city}) async {
     const method = 'getCurrentRates';
     final endpoint = city != null ? '/api/current/$city' : '/api/current';
-    
+
     try {
-      _log('🚀 Getting current SYP rates${city != null ? ' for $city' : ''}', method: method, level: 'info');
-      
-      final response = await http.get(
-        Uri.parse(ApiConfigService.getSypApiUrl(endpoint)),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
+      _log(
+        '🚀 Getting current SYP rates${city != null ? ' for $city' : ''}',
+        method: method,
+        level: 'info',
+      );
+
+      final response = await http
+          .get(
+            Uri.parse(ApiConfigService.getSypApiUrl(endpoint)),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        _log('✅ Current rates retrieved successfully', method: method, level: 'info');
+        _log(
+          '✅ Current rates retrieved successfully',
+          method: method,
+          level: 'info',
+        );
         return jsonData;
       } else {
         throw Exception('Failed to get current rates: ${response.statusCode}');
@@ -76,23 +94,36 @@ class SypApiService {
   }
 
   // Get forecast
-  static Future<Map<String, dynamic>> getForecast({int? days, String? city}) async {
+  static Future<Map<String, dynamic>> getForecast({
+    int? days,
+    String? city,
+  }) async {
     const method = 'getForecast';
     String endpoint = '/api/forecast';
     if (days != null) endpoint += '/$days';
     if (city != null) endpoint += '/$city';
-    
+
     try {
-      _log('🚀 Getting SYP forecast${days != null ? ' for $days days' : ''}${city != null ? ' for $city' : ''}', method: method, level: 'info');
-      
-      final response = await http.get(
-        Uri.parse(ApiConfigService.getSypApiUrl(endpoint)),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 20));
+      _log(
+        '🚀 Getting SYP forecast${days != null ? ' for $days days' : ''}${city != null ? ' for $city' : ''}',
+        method: method,
+        level: 'info',
+      );
+
+      final response = await http
+          .get(
+            Uri.parse(ApiConfigService.getSypApiUrl(endpoint)),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        _log('✅ Forecast retrieved successfully', method: method, level: 'info');
+        _log(
+          '✅ Forecast retrieved successfully',
+          method: method,
+          level: 'info',
+        );
         return jsonData;
       } else {
         throw Exception('Failed to get forecast: ${response.statusCode}');
@@ -104,29 +135,48 @@ class SypApiService {
   }
 
   // Get ask/bid forecast
-  static Future<Map<String, dynamic>> getAskBidForecast({int? days, String? city}) async {
+  static Future<Map<String, dynamic>> getAskBidForecast({
+    int? days,
+    String? city,
+  }) async {
     const method = 'getAskBidForecast';
     String endpoint = '/api/ask-bid-forecast';
     if (days != null) endpoint += '/$days';
     if (city != null) endpoint += '/$city';
-    
+
     try {
-      _log('🚀 Getting ask/bid forecast${days != null ? ' for $days days' : ''}${city != null ? ' for $city' : ''}', method: method, level: 'info');
-      
-      final response = await http.get(
-        Uri.parse(ApiConfigService.getSypApiUrl(endpoint)),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 20));
+      _log(
+        '🚀 Getting ask/bid forecast${days != null ? ' for $days days' : ''}${city != null ? ' for $city' : ''}',
+        method: method,
+        level: 'info',
+      );
+
+      final response = await http
+          .get(
+            Uri.parse(ApiConfigService.getSypApiUrl(endpoint)),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        _log('✅ Ask/bid forecast retrieved successfully', method: method, level: 'info');
+        _log(
+          '✅ Ask/bid forecast retrieved successfully',
+          method: method,
+          level: 'info',
+        );
         return jsonData;
       } else {
-        throw Exception('Failed to get ask/bid forecast: ${response.statusCode}');
+        throw Exception(
+          'Failed to get ask/bid forecast: ${response.statusCode}',
+        );
       }
     } catch (e) {
-      _log('❌ Failed to get ask/bid forecast: $e', method: method, level: 'error');
+      _log(
+        '❌ Failed to get ask/bid forecast: $e',
+        method: method,
+        level: 'error',
+      );
       throw Exception('Ask/bid forecast error: $e');
     }
   }
@@ -135,18 +185,28 @@ class SypApiService {
   static Future<Map<String, dynamic>> getOhlcvData({String? city}) async {
     const method = 'getOhlcvData';
     final endpoint = city != null ? '/api/ohlcv/$city' : '/api/ohlcv';
-    
+
     try {
-      _log('🚀 Getting OHLCV data${city != null ? ' for $city' : ''}', method: method, level: 'info');
-      
-      final response = await http.get(
-        Uri.parse(ApiConfigService.getSypApiUrl(endpoint)),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
+      _log(
+        '🚀 Getting OHLCV data${city != null ? ' for $city' : ''}',
+        method: method,
+        level: 'info',
+      );
+
+      final response = await http
+          .get(
+            Uri.parse(ApiConfigService.getSypApiUrl(endpoint)),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        _log('✅ OHLCV data retrieved successfully', method: method, level: 'info');
+        _log(
+          '✅ OHLCV data retrieved successfully',
+          method: method,
+          level: 'info',
+        );
         return jsonData;
       } else {
         throw Exception('Failed to get OHLCV data: ${response.statusCode}');
@@ -160,24 +220,36 @@ class SypApiService {
   // Get city comparison
   static Future<Map<String, dynamic>> getCityComparison() async {
     const method = 'getCityComparison';
-    
+
     try {
       _log('🚀 Getting city comparison', method: method, level: 'info');
-      
-      final response = await http.get(
-        Uri.parse(ApiConfigService.getSypApiUrl('/api/comparison')),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
+
+      final response = await http
+          .get(
+            Uri.parse(ApiConfigService.getSypApiUrl('/api/comparison')),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        _log('✅ City comparison retrieved successfully', method: method, level: 'info');
+        _log(
+          '✅ City comparison retrieved successfully',
+          method: method,
+          level: 'info',
+        );
         return jsonData;
       } else {
-        throw Exception('Failed to get city comparison: ${response.statusCode}');
+        throw Exception(
+          'Failed to get city comparison: ${response.statusCode}',
+        );
       }
     } catch (e) {
-      _log('❌ Failed to get city comparison: $e', method: method, level: 'error');
+      _log(
+        '❌ Failed to get city comparison: $e',
+        method: method,
+        level: 'error',
+      );
       throw Exception('City comparison error: $e');
     }
   }
@@ -185,24 +257,40 @@ class SypApiService {
   // Get batch forecast
   static Future<Map<String, dynamic>> getBatchForecast(int days) async {
     const method = 'getBatchForecast';
-    
+
     try {
-      _log('🚀 Getting batch forecast for $days days', method: method, level: 'info');
-      
-      final response = await http.get(
-        Uri.parse(ApiConfigService.getSypApiUrl('/api/batch-forecast/$days')),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 25));
+      _log(
+        '🚀 Getting batch forecast for $days days',
+        method: method,
+        level: 'info',
+      );
+
+      final response = await http
+          .get(
+            Uri.parse(
+              ApiConfigService.getSypApiUrl('/api/batch-forecast/$days'),
+            ),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        _log('✅ Batch forecast retrieved successfully', method: method, level: 'info');
+        _log(
+          '✅ Batch forecast retrieved successfully',
+          method: method,
+          level: 'info',
+        );
         return jsonData;
       } else {
         throw Exception('Failed to get batch forecast: ${response.statusCode}');
       }
     } catch (e) {
-      _log('❌ Failed to get batch forecast: $e', method: method, level: 'error');
+      _log(
+        '❌ Failed to get batch forecast: $e',
+        method: method,
+        level: 'error',
+      );
       throw Exception('Batch forecast error: $e');
     }
   }
@@ -212,12 +300,14 @@ class SypApiService {
     try {
       final currentRates = data['current_rates'] ?? {};
       final ohlcv = data['ohlcv'] ?? {};
-      
+
       return CurrentRatesResponse(
         success: data['success'] ?? false,
         timestamp: data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
         date: data['date'] ?? DateTime.now().toIso8601String().split('T')[0],
-        time: data['time'] ?? DateTime.now().toIso8601String().split('T')[1].split('.')[0],
+        time:
+            data['time'] ??
+            DateTime.now().toIso8601String().split('T')[1].split('.')[0],
         pair: data['pair'] ?? 'USD/SYP',
         market: data['market'] ?? 'black_market',
         city: data['city'] ?? 'aleppo',
@@ -227,7 +317,8 @@ class SypApiService {
           mid: (currentRates['mid'] ?? 0.0).toDouble(),
           spread: (currentRates['spread'] ?? 0.0).toDouble(),
           change: (currentRates['change'] ?? 0.0).toDouble(),
-          changePercentage: (currentRates['change_percentage'] ?? 0.0).toDouble(),
+          changePercentage: (currentRates['change_percentage'] ?? 0.0)
+              .toDouble(),
         ),
         ohlcv: OHLCV(
           open: (ohlcv['open'] ?? 0.0).toDouble(),
@@ -240,7 +331,9 @@ class SypApiService {
         metadata: Metadata(
           source: data['metadata']?['source'] ?? 'sp-today',
           approach: data['metadata']?['approach'] ?? '70% calm / 30% normal',
-          lastUpdated: data['metadata']?['last_updated'] ?? DateTime.now().toIso8601String(),
+          lastUpdated:
+              data['metadata']?['last_updated'] ??
+              DateTime.now().toIso8601String(),
         ),
       );
     } catch (e) {
@@ -253,15 +346,20 @@ class SypApiService {
   static ForecastResponse parseForecast(Map<String, dynamic> data) {
     try {
       final prediction = data['prediction'] ?? {};
-                    // final spreadAnalysis = data['spread_analysis'] ?? {};
+      // final spreadAnalysis = data['spread_analysis'] ?? {};
       final predictedOhlcv = data['predicted_ohlcv'] ?? {};
       final forecastMethod = data['forecast_method'] ?? {};
       final basedOn = data['based_on'] ?? {};
-      
+
       return ForecastResponse(
         success: data['success'] ?? false,
         timestamp: data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
-        forecastDate: data['forecast_date'] ?? DateTime.now().add(const Duration(days: 1)).toIso8601String().split('T')[0],
+        forecastDate:
+            data['forecast_date'] ??
+            DateTime.now()
+                .add(const Duration(days: 1))
+                .toIso8601String()
+                .split('T')[0],
         daysAhead: data['days_ahead'] ?? 1,
         pair: data['pair'] ?? 'USD/SYP',
         market: data['market'] ?? 'black_market_forecast',
@@ -272,9 +370,12 @@ class SypApiService {
           bid: (prediction['bid'] ?? 0.0).toDouble(),
           spread: (prediction['spread'] ?? 0.0).toDouble(),
           confidenceInterval: ConfidenceInterval(
-            lower: (prediction['confidence_interval']?['lower'] ?? 0.0).toDouble(),
-            upper: (prediction['confidence_interval']?['upper'] ?? 0.0).toDouble(),
-            rangePct: (prediction['confidence_interval']?['range_pct'] ?? 0.0).toDouble(),
+            lower: (prediction['confidence_interval']?['lower'] ?? 0.0)
+                .toDouble(),
+            upper: (prediction['confidence_interval']?['upper'] ?? 0.0)
+                .toDouble(),
+            rangePct: (prediction['confidence_interval']?['range_pct'] ?? 0.0)
+                .toDouble(),
           ),
           expectedChange: (prediction['expected_change'] ?? 0.0).toDouble(),
           dayType: prediction['day_type'] ?? 'calm',
@@ -291,9 +392,13 @@ class SypApiService {
         forecastMethod: ForecastMethod(
           type: forecastMethod['type'] ?? 'enhanced_forecast_with_ask_bid',
           approach: forecastMethod['approach'] ?? '70% calm / 30% normal',
-          description: forecastMethod['description'] ?? 'Enhanced forecast with ask/bid predictions',
+          description:
+              forecastMethod['description'] ??
+              'Enhanced forecast with ask/bid predictions',
           confidence: forecastMethod['confidence'] ?? 'low',
-          spreadPrediction: forecastMethod['spread_prediction'] ?? 'Based on current spread and day-type volatility',
+          spreadPrediction:
+              forecastMethod['spread_prediction'] ??
+              'Based on current spread and day-type volatility',
         ),
         basedOn: basedOn,
       );

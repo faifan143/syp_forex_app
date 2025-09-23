@@ -64,9 +64,6 @@ class MarketSimulationService {
 
     // Start price simulation timer with dynamic interval based on timeframe
     final interval = _getUpdateInterval(timeframe);
-    print(
-      '🔄 [MARKET_SIMULATION] Starting simulation with ${timeframe} timeframe (${interval.inSeconds}s interval)',
-    );
     _simulationTimer = Timer.periodic(interval, (timer) {
       _updatePrices();
       _updateChartData();
@@ -77,9 +74,6 @@ class MarketSimulationService {
   void updateTimeframe(String timeframe) {
     if (!_isRunning || _currentTimeframe == timeframe) return;
 
-    print(
-      '🔄 [MARKET_SIMULATION] Updating timeframe from $_currentTimeframe to $timeframe',
-    );
     _currentTimeframe = timeframe;
 
     // Restart timer with new interval
@@ -119,7 +113,6 @@ class MarketSimulationService {
 
   // Update base prices with real market data
   void updateBasePrices(Map<String, double> newBasePrices) {
-    print('🔄 [MARKET_SIMULATION] Updating base prices: $newBasePrices');
     // Update base prices with real market data
     for (String symbol in newBasePrices.keys) {
       _basePrices[symbol] = newBasePrices[symbol]!;
@@ -130,13 +123,8 @@ class MarketSimulationService {
       for (String symbol in newBasePrices.keys) {
         _currentPrices[symbol] = newBasePrices[symbol]!;
       }
-      print('🔄 [MARKET_SIMULATION] Updated current prices: $_currentPrices');
       _priceController.add(Map.from(_currentPrices));
-    } else {
-      print(
-        '⚠️ [MARKET_SIMULATION] Simulation not running, cannot update current prices',
-      );
-    }
+    } else {}
   }
 
   void _initializePrices() {
@@ -154,40 +142,9 @@ class MarketSimulationService {
   }
 
   List<Map<String, double>> _generateInitialChartData(String symbol) {
-    final basePrice = _basePrices[symbol]!;
-    final volatility = _volatility[symbol]!;
-    final List<Map<String, double>> candles = [];
+    // No historical data - simulation starts from current moment
 
-    double currentPrice = basePrice;
-
-    // Generate reasonable amount of initial data for good chart display
-    for (int i = 0; i < 200; i++) {
-      // Generate realistic price movement
-      final change = _generatePriceChange(volatility);
-      final open = currentPrice;
-      final close = currentPrice + change;
-      final high =
-          [open, close].reduce((a, b) => a > b ? a : b) +
-          (volatility * _random.nextDouble());
-      final low =
-          [open, close].reduce((a, b) => a < b ? a : b) -
-          (volatility * _random.nextDouble());
-
-      candles.add({
-        'open': open,
-        'high': high,
-        'low': low,
-        'close': close,
-        'time': DateTime.now()
-            .subtract(Duration(hours: 200 - i))
-            .millisecondsSinceEpoch
-            .toDouble(),
-      });
-
-      currentPrice = close;
-    }
-
-    return candles;
+    return []; // Return empty list - no historical data
   }
 
   double _generatePriceChange(double volatility) {
@@ -203,9 +160,6 @@ class MarketSimulationService {
   }
 
   void _updatePrices() {
-    print(
-      '🔄 [MARKET_SIMULATION] Updating prices for ${_currentPrices.length} symbols',
-    );
     for (String symbol in _currentPrices.keys) {
       final volatility =
           _volatility[symbol] ?? 0.0001; // Default volatility if null
@@ -215,15 +169,6 @@ class MarketSimulationService {
         0.0001,
         999.9999,
       );
-      print(
-        '📈 [MARKET_SIMULATION] $symbol: ${oldPrice.toStringAsFixed(5)} -> ${_currentPrices[symbol]!.toStringAsFixed(5)} (change: ${change.toStringAsFixed(6)})',
-      );
-    }
-    print(
-      '🔄 [MARKET_SIMULATION] Broadcasting price update to ${_priceController.hasListener ? 'listeners' : 'NO LISTENERS'}',
-    );
-    if (!_priceController.hasListener) {
-      print('⚠️ [MARKET_SIMULATION] WARNING: No listeners on price stream!');
     }
     _priceController.add(Map.from(_currentPrices));
   }

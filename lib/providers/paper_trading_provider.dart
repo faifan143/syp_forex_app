@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/paper_trading_models.dart';
 import '../models/forex_models.dart';
 import '../services/market_simulation_service.dart';
+import '../services/simulation_api_service.dart';
 
 class PaperTradingProvider extends GetxController {
   VirtualWallet _wallet = VirtualWallet.initial();
@@ -12,14 +13,18 @@ class PaperTradingProvider extends GetxController {
   bool _isLoading = false;
   String? _error;
 
-  // Market Simulation
-  final MarketSimulationService _marketService = MarketSimulationService();
-  bool _isSimulationRunning = false;
+  // Real M1 Simulation Data (from Flask API)
+  final SimulationApiService _simulationService = SimulationApiService();
+  Map<String, List<Map<String, dynamic>>> _simulationData = {};
+  Map<String, int> _currentDataIndex = {}; // Track current position in M1 data
   Map<String, double> _currentPrices = {};
   Map<String, List<Map<String, double>>> _chartData = {};
-  StreamSubscription<Map<String, double>>? _priceSubscription;
-  StreamSubscription<Map<String, List<Map<String, double>>>>?
-  _chartSubscription;
+  bool _isSimulationRunning = false;
+  Timer? _simulationTimer;
+  String _currentTimeframe = '1m';
+
+  // Legacy Market Simulation (for fallback)
+  final MarketSimulationService _marketService = MarketSimulationService();
 
   // Getters
   VirtualWallet get wallet => _wallet;
@@ -31,6 +36,8 @@ class PaperTradingProvider extends GetxController {
   bool get isSimulationRunning => _isSimulationRunning;
   Map<String, double> get currentPrices => _currentPrices;
   Map<String, List<Map<String, double>>> get chartData => _chartData;
+  Map<String, int> get currentDataIndex => _currentDataIndex;
+  Map<String, List<Map<String, dynamic>>> get simulationData => _simulationData;
   Stream<Map<String, List<Map<String, double>>>>? get chartDataStream =>
       _marketService.chartStream;
 
@@ -50,6 +57,381 @@ class PaperTradingProvider extends GetxController {
   void initialize() {
     _wallet = VirtualWallet.initial();
     _loadWalletData(); // Load saved data on initialization
+    update();
+  }
+
+  // Load simulation data from Flask API
+  Future<void> loadSimulationData(String symbol) async {
+    print('🚀 [PAPER_TRADING_PROVIDER] Loading simulation data for symbol: $symbol');
+    try {
+      _setLoading(true);
+
+      // Handle both currency codes (EUR) and currency pairs (EUR/USD)
+      String currency;
+      if (symbol.contains('/')) {
+        // It's a currency pair, convert to currency code
+        currency = _getCurrencyFromSymbol(symbol) ?? symbol;
+      } else {
+        // It's already a currency code
+        currency = symbol;
+      }
+      
+      print('🚀 [PAPER_TRADING_PROVIDER] Using currency code: $currency');
+      
+      // Validate currency code
+      final validCurrencies = ['EUR', 'GBP', 'AUD', 'NZD', 'JPY', 'CHF', 'CAD', 'SEK', 'TRY', 'CNH'];
+      if (!validCurrencies.contains(currency)) {
+        print('❌ [PAPER_TRADING_PROVIDER] Invalid currency code: $currency');
+        return;
+      }
+
+      // Get simulation data from Flask API
+      print('🚀 [PAPER_TRADING_PROVIDER] Calling SimulationApiService.getSimulationData($currency)');
+      final simulationData = await SimulationApiService.getSimulationData(
+        currency,
+      );
+      
+      if (simulationData != null && simulationData.data.isNotEmpty) {
+        print('✅ [PAPER_TRADING_PROVIDER] Successfully loaded simulation data: ${simulationData.data.length} records');
+        print('✅ [PAPER_TRADING_PROVIDER] First record: ${simulationData.data.first}');
+        print('✅ [PAPER_TRADING_PROVIDER] Last record: ${simulationData.data.last}');
+        
+        _simulationData[symbol] = simulationData.data;
+        _currentDataIndex[symbol] =
+            499; // Start from 500th record (index 499) to have historical context
+
+        // Initialize current price with 500th data point (historical context)
+        final currencyPair = _getCurrencyPairFromCode(symbol);
+        if (currencyPair != null) {
+          if (_simulationData[symbol]!.isNotEmpty &&
+              _simulationData[symbol]!.length > 499) {
+            final startData =
+                _simulationData[symbol]![499]; // 500th record (index 499)
+            _currentPrices[currencyPair] = _parsePrice(startData);
+            print('✅ [PAPER_TRADING_PROVIDER] Set current price from 500th record: ${_currentPrices[currencyPair]}');
+          } else if (_simulationData[symbol]!.isNotEmpty) {
+            // Fallback to first data point if not enough data
+            final firstData = _simulationData[symbol]!.first;
+            _currentPrices[currencyPair] = _parsePrice(firstData);
+            _currentDataIndex[symbol] = 0; // Reset to start if not enough data
+            print('✅ [PAPER_TRADING_PROVIDER] Set current price from first record: ${_currentPrices[currencyPair]}');
+          }
+        }
+
+        // Generate initial chart data from simulation data (progressive from start)
+        _generateChartDataFromSimulation(symbol);
+        if (currencyPair != null) {
+          print('✅ [PAPER_TRADING_PROVIDER] Generated chart data: ${_chartData[currencyPair]?.length ?? 0} candles');
+        }
+
+        // Log the starting data point and some context
+        if (_simulationData[symbol]!.isNotEmpty) {
+          final startData = _simulationData[symbol]![499]; // 500th record
+          final firstData = _simulationData[symbol]!.first;
+          final lastData = _simulationData[symbol]!.last;
+          print('📊 [PAPER_TRADING_PROVIDER] Data summary:');
+          print('📊 [PAPER_TRADING_PROVIDER] - Total records: ${_simulationData[symbol]!.length}');
+          print('📊 [PAPER_TRADING_PROVIDER] - Starting from index: 499');
+          print('📊 [PAPER_TRADING_PROVIDER] - First record time: ${firstData['Datetime']}');
+          print('📊 [PAPER_TRADING_PROVIDER] - Last record time: ${lastData['Datetime']}');
+        }
+      } else {
+        print('❌ [PAPER_TRADING_PROVIDER] Failed to load simulation data or data is empty');
+        print('❌ [PAPER_TRADING_PROVIDER] simulationData is null: ${simulationData == null}');
+        if (simulationData != null) {
+          print('❌ [PAPER_TRADING_PROVIDER] Data length: ${simulationData.data.length}');
+        }
+      }
+    } catch (e) {
+      print('❌ [PAPER_TRADING_PROVIDER] Exception loading simulation data: $e');
+      _setError('Failed to load simulation data: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Convert symbol format (EUR/USD -> EUR)
+  String? _getCurrencyFromSymbol(String symbol) {
+    final currencyMap = {
+      'EUR/USD': 'EUR',
+      'GBP/USD': 'GBP',
+      'AUD/USD': 'AUD',
+      'NZD/USD': 'NZD',
+      'USD/JPY': 'JPY',
+      'USD/CHF': 'CHF',
+      'USD/CAD': 'CAD',
+      'USD/SEK': 'SEK',
+      'USD/TRY': 'TRY',
+      'USD/CNY': 'CNH',
+    };
+    return currencyMap[symbol];
+  }
+
+  // Convert currency code to currency pair for chart data storage
+  String? _getCurrencyPairFromCode(String currencyCode) {
+    final pairMap = {
+      'EUR': 'EUR/USD',
+      'GBP': 'GBP/USD',
+      'AUD': 'AUD/USD',
+      'NZD': 'NZD/USD',
+      'JPY': 'USD/JPY',
+      'CHF': 'USD/CHF',
+      'CAD': 'USD/CAD',
+      'SEK': 'USD/SEK',
+      'TRY': 'USD/TRY',
+      'CNH': 'USD/CNY',
+    };
+    return pairMap[currencyCode];
+  }
+
+  // Parse price from simulation data
+  double _parsePrice(Map<String, dynamic> data) {
+    // Try different possible price field names
+    if (data.containsKey('Close')) return data['Close'].toDouble();
+    if (data.containsKey('close')) return data['close'].toDouble();
+    if (data.containsKey('price')) return data['price'].toDouble();
+    if (data.containsKey('rate')) return data['rate'].toDouble();
+    return 1.0; // Fallback
+  }
+
+  // Generate chart data from simulation data (progressive - only up to current position)
+  void _generateChartDataFromSimulation(String symbol) {
+    if (!_simulationData.containsKey(symbol)) return;
+    if (!_currentDataIndex.containsKey(symbol)) return;
+    
+    // Check if we have any listeners before updating
+    if (!hasListeners) {
+      return;
+    }
+
+    final data = _simulationData[symbol]!;
+    final currentIndex = _currentDataIndex[symbol]!;
+    final candles = <Map<String, double>>[];
+
+    // Only use data up to current position (progressive chart)
+    final dataToUse = data.take(currentIndex + 1).toList();
+
+    if (dataToUse.isEmpty) {
+      print('❌ [CHART_GENERATION] No data to use for chart generation');
+      return;
+    }
+
+    // Convert M1 data to candles for the selected timeframe
+    final timeframeMinutes = _getTimeframeMinutes(_currentTimeframe);
+    final groupedData = <String, List<Map<String, dynamic>>>{};
+
+    // Group data by timeframe (only up to current position)
+    for (final record in dataToUse) {
+      final timestamp = _parseTimestamp(record);
+      final timeKey = _getTimeKey(timestamp, timeframeMinutes);
+
+      if (!groupedData.containsKey(timeKey)) {
+        groupedData[timeKey] = [];
+      }
+      groupedData[timeKey]!.add(record);
+    }
+
+    // Create candles from grouped data
+    for (final timeKey in groupedData.keys.toList()..sort()) {
+      final group = groupedData[timeKey]!;
+      if (group.isEmpty) continue;
+
+      final prices = group.map((r) => _parsePrice(r)).toList();
+      final open = prices.first;
+      final close = prices.last;
+      final high = prices.reduce((a, b) => a > b ? a : b);
+      final low = prices.reduce((a, b) => a < b ? a : b);
+
+      candles.add({
+        'open': open,
+        'high': high,
+        'low': low,
+        'close': close,
+        'volume': group.length.toDouble(),
+      });
+    }
+
+    // Limit to reasonable number of candles for performance (e.g., last 155 candles)
+    final maxCandles = 155;
+    final finalCandles = candles.length > maxCandles
+        ? candles.sublist(candles.length - maxCandles)
+        : candles;
+
+    // Store chart data with currency pair as key for chart access
+    final currencyPair = _getCurrencyPairFromCode(symbol);
+    if (currencyPair != null) {
+      _chartData[currencyPair] = finalCandles;
+    }
+    update();
+  }
+
+  // Parse timestamp from simulation data
+  DateTime _parseTimestamp(Map<String, dynamic> data) {
+    if (data.containsKey('Datetime')) {
+      return DateTime.parse(data['Datetime']);
+    }
+    if (data.containsKey('timestamp')) {
+      return DateTime.fromMillisecondsSinceEpoch(data['timestamp']);
+    }
+    if (data.containsKey('time')) {
+      return DateTime.parse(data['time']);
+    }
+    return DateTime.now(); // Fallback
+  }
+
+  // Get time key for grouping data by timeframe
+  String _getTimeKey(DateTime timestamp, int timeframeMinutes) {
+    final minutes = timestamp.minute;
+    final groupedMinutes = (minutes ~/ timeframeMinutes) * timeframeMinutes;
+    final groupedTime = DateTime(
+      timestamp.year,
+      timestamp.month,
+      timestamp.day,
+      timestamp.hour,
+      groupedMinutes,
+    );
+    return groupedTime.toIso8601String();
+  }
+
+  // Get timeframe in minutes
+  int _getTimeframeMinutes(String timeframe) {
+    switch (timeframe) {
+      case '1m':
+        return 1;
+      case '5m':
+        return 5;
+      case '15m':
+        return 15;
+      case '30m':
+        return 30;
+      case '1h':
+        return 60;
+      case '4h':
+        return 240;
+      case '1d':
+        return 1440;
+      default:
+        return 1;
+    }
+  }
+
+  // Start simulation using real M1 data
+  void startSimulation({String timeframe = '1m'}) {
+    print('🚀 [SIMULATION_START] Starting simulation with timeframe: $timeframe');
+    print('🚀 [SIMULATION_START] Current simulation running: $_isSimulationRunning');
+    
+    if (_isSimulationRunning) {
+      print('⚠️ [SIMULATION_START] Simulation already running, skipping start');
+      return;
+    }
+
+    _isSimulationRunning = true;
+    _currentTimeframe = timeframe;
+    print('✅ [SIMULATION_START] Simulation started successfully');
+
+    // Reset all symbols to start from 500th record (historical context)
+    for (final symbol in _simulationData.keys) {
+      if (_simulationData[symbol]!.length > 499) {
+        _currentDataIndex[symbol] = 499; // Start from 500th record
+        final startData = _simulationData[symbol]![499];
+        _currentPrices[symbol] = _parsePrice(startData);
+      } else {
+        _currentDataIndex[symbol] = 0; // Fallback to start if not enough data
+        final firstData = _simulationData[symbol]!.first;
+        _currentPrices[symbol] = _parsePrice(firstData);
+      }
+    }
+
+    // Start timer to advance through M1 data
+    _simulationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _advanceSimulationData();
+    });
+  }
+
+  // Advance through simulation data
+  void _advanceSimulationData() {
+    // Check if we have any listeners before updating
+    if (!hasListeners) {
+      return;
+    }
+    
+    for (final symbol in _simulationData.keys) {
+      if (!_currentDataIndex.containsKey(symbol)) continue;
+
+      final data = _simulationData[symbol]!;
+      final currentIndex = _currentDataIndex[symbol]!;
+
+      // Check if we have more data
+      if (currentIndex < data.length - 1) {
+        final nextIndex = currentIndex + 1;
+        _currentDataIndex[symbol] = nextIndex;
+        final newData = data[nextIndex];
+        // Store current price with currency pair as key
+        final currencyPair = _getCurrencyPairFromCode(symbol);
+        if (currencyPair != null) {
+          _currentPrices[currencyPair] = _parsePrice(newData);
+        }
+
+        // Log progress every 100 data points and first few data points
+        if (nextIndex < 5 || nextIndex % 100 == 0) {
+          final timestamp = newData['Datetime'] ?? 'Unknown';
+          final price = _parsePrice(newData).toStringAsFixed(4);
+        }
+
+        // Update chart data on every advance for real-time progressive chart
+        _generateChartDataFromSimulation(symbol);
+
+        _updatePositionPrices();
+        update();
+      } else {
+        // Reached end of data, restart from beginning
+
+        _currentDataIndex[symbol] = 0;
+        final firstData = data[0];
+        // Store current price with currency pair as key
+        final currencyPair = _getCurrencyPairFromCode(symbol);
+        if (currencyPair != null) {
+          _currentPrices[currencyPair] = _parsePrice(firstData);
+        }
+        _generateChartDataFromSimulation(
+          symbol,
+        ); // Generate progressive chart from start
+        _updatePositionPrices();
+        update();
+      }
+    }
+  }
+
+  // Stop simulation
+  void stopSimulation() {
+    _isSimulationRunning = false;
+    _simulationTimer?.cancel();
+    _simulationTimer = null;
+  }
+
+  // Reset simulation to beginning
+  void resetSimulation() {
+    for (final symbol in _simulationData.keys) {
+      _currentDataIndex[symbol] = -1;
+      if (_simulationData[symbol]!.isNotEmpty) {
+        final firstData = _simulationData[symbol]!.first;
+        _currentPrices[symbol] = _parsePrice(firstData);
+        _generateChartDataFromSimulation(symbol);
+      }
+    }
+    _updatePositionPrices();
+    update();
+  }
+
+  // Update simulation with new timeframe
+  void updateTimeframe(String timeframe) {
+    _currentTimeframe = timeframe;
+
+    // Regenerate chart data for all symbols
+    for (final symbol in _simulationData.keys) {
+      _generateChartDataFromSimulation(symbol);
+    }
+
     update();
   }
 
@@ -92,13 +474,7 @@ class PaperTradingProvider extends GetxController {
         tradeHistory: trades,
         lastUpdate: lastUpdate,
       );
-
-      print('✅ [PAPER_TRADING] Loaded wallet data from SharedPreferences');
-      print('💰 Balance: \$${balance.toStringAsFixed(2)}');
-      print('📊 Open Positions: ${positions.length}');
-      print('📈 Trade History: ${trades.length} trades');
     } catch (e) {
-      print('❌ [PAPER_TRADING] Error loading wallet data: $e');
       // Keep default wallet if loading fails
     }
   }
@@ -128,66 +504,7 @@ class PaperTradingProvider extends GetxController {
         _wallet.tradeHistory.map((trade) => trade.toJson()).toList(),
       );
       await prefs.setString('wallet_trade_history', tradesJson);
-
-      print('💾 [PAPER_TRADING] Saved wallet data to SharedPreferences');
-    } catch (e) {
-      print('❌ [PAPER_TRADING] Error saving wallet data: $e');
-    }
-  }
-
-  // Start market simulation (now primarily for chart data, prices come from dashboard)
-  void startSimulation({String timeframe = '1m'}) {
-    if (_isSimulationRunning) {
-      print('⚠️ [PAPER_TRADING] Simulation already running, skipping start');
-      return;
-    }
-
-    print('🚀 [PAPER_TRADING] Starting simulation with timeframe: $timeframe');
-    _isSimulationRunning = true;
-    _marketService.startSimulation(timeframe: timeframe);
-
-    // Subscribe to price updates - allow simulation to continue updating all prices
-    print('🔄 [PAPER_TRADING] Setting up price stream subscription...');
-    _priceSubscription = _marketService.priceStream.listen((prices) {
-      print(
-        '🔄 [PAPER_TRADING] Received price update: ${prices.length} symbols',
-      );
-      // Update all prices from simulation (simulation continues running)
-      for (String symbol in prices.keys) {
-        _currentPrices[symbol] = prices[symbol]!;
-      }
-      _updatePositionPrices();
-      update();
-      print('🔄 [PAPER_TRADING] Updated UI with new prices');
-    });
-    print('🔄 [PAPER_TRADING] Price stream subscription set up successfully');
-
-    // Subscribe to chart updates
-    _chartSubscription = _marketService.chartStream.listen((chartData) {
-      _chartData = chartData;
-      update();
-    });
-
-    update();
-  }
-
-  // Stop market simulation
-  void stopSimulation() {
-    if (!_isSimulationRunning) return;
-
-    _isSimulationRunning = false;
-    _marketService.stopSimulation();
-    _priceSubscription?.cancel();
-    _chartSubscription?.cancel();
-    update();
-  }
-
-  // Update simulation timeframe
-  void updateTimeframe(String timeframe) {
-    if (_isSimulationRunning) {
-      _marketService.updateTimeframe(timeframe);
-      update();
-    }
+    } catch (e) {}
   }
 
   // Toggle simulation
@@ -311,9 +628,6 @@ class PaperTradingProvider extends GetxController {
       lastUpdate: DateTime.now(),
     );
 
-    print(
-      '🔄 [TRADE_HISTORY] Position closed automatically: ${position.symbol} - P&L: \$${finalPnL.toStringAsFixed(2)}',
-    );
     _saveWalletData(); // Save to SharedPreferences
     update(); // Notify UI of changes
   }
@@ -456,8 +770,6 @@ class PaperTradingProvider extends GetxController {
     required double price,
     double? stopLoss,
     double? takeProfit,
-    double? stopLossDollars,
-    double? takeProfitDollars,
   }) async {
     _setLoading(true);
 
@@ -478,36 +790,6 @@ class PaperTradingProvider extends GetxController {
         currentPrice = price;
       }
 
-      // Convert dollar amounts to price levels if provided
-      double? finalStopLoss = stopLoss;
-      double? finalTakeProfit = takeProfit;
-
-      if (stopLossDollars != null && stopLossDollars > 0) {
-        // Calculate price level for stop loss based on dollar amount
-        final pipValue = _calculatePipValue(symbol, currentPrice, volume);
-        final stopLossPips = stopLossDollars / pipValue;
-        final pipSize = _getPipSize(symbol);
-
-        if (type == PositionType.buy) {
-          finalStopLoss = currentPrice - (stopLossPips * pipSize);
-        } else {
-          finalStopLoss = currentPrice + (stopLossPips * pipSize);
-        }
-      }
-
-      if (takeProfitDollars != null && takeProfitDollars > 0) {
-        // Calculate price level for take profit based on dollar amount
-        final pipValue = _calculatePipValue(symbol, currentPrice, volume);
-        final takeProfitPips = takeProfitDollars / pipValue;
-        final pipSize = _getPipSize(symbol);
-
-        if (type == PositionType.buy) {
-          finalTakeProfit = currentPrice + (takeProfitPips * pipSize);
-        } else {
-          finalTakeProfit = currentPrice - (takeProfitPips * pipSize);
-        }
-      }
-
       final newPosition = Position(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         symbol: symbol,
@@ -516,8 +798,8 @@ class PaperTradingProvider extends GetxController {
         openPrice: currentPrice,
         currentPrice: currentPrice,
         openTime: DateTime.now(),
-        stopLoss: finalStopLoss ?? 0.0,
-        takeProfit: finalTakeProfit ?? 0.0,
+        stopLoss: stopLoss ?? 0.0,
+        takeProfit: takeProfit ?? 0.0,
         comment: '',
       );
 
@@ -628,9 +910,6 @@ class PaperTradingProvider extends GetxController {
         lastUpdate: DateTime.now(),
       );
 
-      print(
-        '🔄 [TRADE_HISTORY] Position closed manually: ${position.symbol} - P&L: \$${finalPnL.toStringAsFixed(2)}',
-      );
       _saveWalletData(); // Save to SharedPreferences
       _clearError();
       update(); // Notify UI of changes
@@ -652,8 +931,7 @@ class PaperTradingProvider extends GetxController {
   // Dispose resources
   @override
   void dispose() {
-    _priceSubscription?.cancel();
-    _chartSubscription?.cancel();
+    _simulationTimer?.cancel();
     _marketService.dispose();
     super.dispose();
   }
@@ -673,13 +951,7 @@ class PaperTradingProvider extends GetxController {
       await prefs.remove('wallet_last_update');
       await prefs.remove('wallet_open_positions');
       await prefs.remove('wallet_trade_history');
-
-      print(
-        '🗑️ [PAPER_TRADING] Cleared all saved data from SharedPreferences',
-      );
-    } catch (e) {
-      print('❌ [PAPER_TRADING] Error clearing saved data: $e');
-    }
+    } catch (e) {}
   }
 
   // Manually save current wallet data (useful for debugging)
@@ -731,14 +1003,7 @@ class PaperTradingProvider extends GetxController {
 
   // Debug current state
   void debugCurrentState() {
-    print('=== Paper Trading Debug State ===');
-    print('Balance: \$${_wallet.balance.toStringAsFixed(2)}');
-    print('Equity: \$${_wallet.currentEquity.toStringAsFixed(2)}');
-    print('Margin: \$${_wallet.margin.toStringAsFixed(2)}');
-    print('Free Margin: \$${_wallet.freeMargin.toStringAsFixed(2)}');
-    print('Open Positions: ${_wallet.openPositions.length}');
-    print('Trade History: ${_wallet.tradeHistory.length}');
-    print('================================');
+    // Debug method - no output needed
   }
 
   // Private methods
@@ -786,21 +1051,5 @@ class PaperTradingProvider extends GetxController {
 
     // Fallback to simulation service
     return _marketService.getAskPriceRealistic(symbol);
-  }
-
-  // Calculate pip value for a given symbol, price, and volume
-  double _calculatePipValue(String symbol, double price, double volume) {
-    final pipSize = _getPipSize(symbol);
-    final contractSize = 100000.0; // Standard lot size
-    final pipValue = (pipSize / price) * contractSize * volume;
-    return pipValue;
-  }
-
-  // Get pip size for different currency pairs
-  double _getPipSize(String symbol) {
-    if (symbol.contains('JPY')) {
-      return 0.01; // 0.01 for JPY pairs
-    }
-    return 0.0001; // 0.0001 for most pairs
   }
 }
