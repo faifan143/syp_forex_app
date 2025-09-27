@@ -1718,8 +1718,8 @@ class _ComprehensivePaperTradingPageState
                     controller: _stopLossController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: '${'stopLoss'.tr} (\$)',
-                      hintText: 'usdExample'.tr,
+                      labelText: '${'stopLoss'.tr} (price)',
+                      hintText: 'e.g. 1.0850',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1738,8 +1738,8 @@ class _ComprehensivePaperTradingPageState
                     controller: _takeProfitController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: 'Take Profit (\$)',
-                      hintText: 'usdExample100'.tr,
+                      labelText: '${'takeProfit'.tr} (price)',
+                      hintText: 'e.g. 1.0950',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1764,8 +1764,8 @@ class _ComprehensivePaperTradingPageState
                       controller: _stopLossController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: '${'stopLoss'.tr} (\$)',
-                        hintText: 'usdExample'.tr,
+                        labelText: '${'stopLoss'.tr} (price)',
+                        hintText: 'e.g. 1.0850',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -1782,8 +1782,8 @@ class _ComprehensivePaperTradingPageState
                       controller: _takeProfitController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: '${'takeProfit'.tr} (\$)',
-                        hintText: 'usdExample100'.tr,
+                        labelText: '${'takeProfit'.tr} (price)',
+                        hintText: 'e.g. 1.0950',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -2062,7 +2062,7 @@ class _ComprehensivePaperTradingPageState
                 ),
                 if (position.stopLoss > 0)
                   Text(
-                    '${'sl'.tr}: \$${_calculateDollarAmount(position).toStringAsFixed(2)}',
+                    '${'sl'.tr}: ${position.stopLoss.toStringAsFixed(5)}',
                   ),
               ],
             ),
@@ -2073,7 +2073,7 @@ class _ComprehensivePaperTradingPageState
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${'tp'.tr}: \$${_calculateDollarAmount(position, isTakeProfit: true).toStringAsFixed(2)}',
+                    '${'tp'.tr}: ${position.takeProfit.toStringAsFixed(5)}',
                   ),
                   const SizedBox(),
                 ],
