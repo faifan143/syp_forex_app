@@ -8,6 +8,23 @@ class AIRecommenderService {
   factory AIRecommenderService() => _instance;
   AIRecommenderService._internal();
 
+  // Cache last recommendation per symbol to stabilize time horizons
+  final Map<String, AIRecommendation> _lastRecommendationBySymbol = {};
+
+  Duration _minRefreshWindow(ConfidenceLevel confidence) {
+    switch (confidence) {
+      case ConfidenceLevel.high:
+        // Long-term → keep stable for a day
+        return const Duration(hours: 24);
+      case ConfidenceLevel.medium:
+        // Medium-term → a few hours
+        return const Duration(hours: 4);
+      case ConfidenceLevel.low:
+        // Short-term → allow more frequent refreshes
+        return const Duration(minutes: 30);
+    }
+  }
+
   // Simulate AI analysis based on market data
   Future<AIRecommendation> generateRecommendation({
     required String symbol,
@@ -15,6 +32,17 @@ class AIRecommenderService {
     required List<Candlestick> recentCandles,
     required Currency? currencyData,
   }) async {
+    // If we have a cached recommendation within its allowed refresh window,
+    // return it to avoid flipping long-term/medium-term calls on refresh.
+    final cached = _lastRecommendationBySymbol[symbol];
+    if (cached != null) {
+      final window = _minRefreshWindow(cached.confidence);
+      final age = DateTime.now().difference(cached.timestamp);
+      if (age < window) {
+        return cached;
+      }
+    }
+
     // Simulate processing time
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -33,6 +61,8 @@ class AIRecommenderService {
       recentCandles: recentCandles,
     );
 
+    // Store in cache and return
+    _lastRecommendationBySymbol[symbol] = recommendation;
     return recommendation;
   }
 
