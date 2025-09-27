@@ -143,25 +143,14 @@ class _ComprehensivePaperTradingPageState
     return pips * pipValue;
   }
 
-  // Get current price for a position from simulation data only
+  // Get current price for a position (side-correct value maintained by provider)
   double _getCurrentPriceForPosition(Position position) {
-    final paperProvider = Get.find<PaperTradingProvider>();
-
-    // PRIORITIZE SIMULATION DATA for real-time updates in open positions
-    if (paperProvider.isSimulationRunning &&
-        paperProvider.currentPrices.containsKey(position.symbol)) {
-      return paperProvider.currentPrices[position.symbol]!;
-    }
-
-    // Last resort: use stored current price
     return position.currentPrice;
   }
 
-  // Calculate unrealized P&L using current price from dashboard data
+  // Calculate unrealized P&L using side-correct current price and proper pip sizing
   double _calculateUnrealizedPnL(Position position, double currentPrice) {
-    // For forex, 1 pip = 0.0001, and pip value is $10 per lot for major pairs
-    const double pipValue = 10.0; // $10 per pip per lot
-    const double pipSize = 0.0001; // 1 pip = 0.0001 for major pairs
+    final pipSize = _getPipSize(position.symbol);
 
     double pips;
     if (position.type == PositionType.buy) {
@@ -170,7 +159,12 @@ class _ComprehensivePaperTradingPageState
       pips = (position.openPrice - currentPrice) / pipSize;
     }
 
-    return pips * pipValue * position.volume;
+    final pipValue = _calculatePipValue(
+      position.symbol,
+      currentPrice,
+      position.volume,
+    );
+    return pips * pipValue;
   }
 
   // Note: Dashboard data fallback methods removed - only using simulation data
@@ -1035,13 +1029,7 @@ class _ComprehensivePaperTradingPageState
                                         : Colors.red,
                                   ),
                                 ),
-                                Expanded(
-                                  child: _buildStatItem(
-                                    'Commission',
-                                    '\$${totalCommission.toStringAsFixed(2)}',
-                                    Icons.receipt,
-                                  ),
-                                ),
+                             
                               ],
                             ),
                           ),
@@ -1204,15 +1192,7 @@ class _ComprehensivePaperTradingPageState
                                   ],
                                 ),
                                 const SizedBox(height: 2),
-                                // Fee in smaller text
-                                if (t.commission > 0)
-                                  Text(
-                                    'Fee: \$${t.commission.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontSize: 8,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
+                         
                               ],
                             ),
                           ),
