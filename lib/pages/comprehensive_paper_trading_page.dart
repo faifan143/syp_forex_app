@@ -150,16 +150,10 @@ class _ComprehensivePaperTradingPageState
     // PRIORITIZE SIMULATION DATA for real-time updates in open positions
     if (paperProvider.isSimulationRunning &&
         paperProvider.currentPrices.containsKey(position.symbol)) {
-      print(
-        '🔄 [OPEN_POSITIONS] Using simulation data for ${position.symbol}: ${paperProvider.currentPrices[position.symbol]}',
-      );
       return paperProvider.currentPrices[position.symbol]!;
     }
 
     // Last resort: use stored current price
-    print(
-      '🔄 [OPEN_POSITIONS] Using position current price for ${position.symbol}: ${position.currentPrice}',
-    );
     return position.currentPrice;
   }
 
@@ -291,9 +285,6 @@ class _ComprehensivePaperTradingPageState
       // Refresh the UI
       setState(() {});
 
-      print(
-        '🔄 [CURRENCY_CHANGE] Switched to $newSymbol ($currencyCode) and loaded simulation data',
-      );
     }
   }
 
@@ -345,9 +336,6 @@ class _ComprehensivePaperTradingPageState
 
               setState(() {}); // Refresh the UI
 
-              print(
-                '🔄 [REFRESH] Reloaded simulation data for $_selectedSymbol ($_selectedCurrency)',
-              );
             },
             tooltip: 'refresh'.tr,
           ),
@@ -689,15 +677,11 @@ class _ComprehensivePaperTradingPageState
         if (paperProvider.isSimulationRunning &&
             paperProvider.currentPrices.containsKey(_selectedSymbol)) {
           // Use simulation data for real-time updates
-          print('🔄 [TRADING_FORM] Using simulation data for $_selectedSymbol');
           final spreadPercentage = _getSpreadPercentage(_selectedSymbol);
           currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
           askPrice = currentPrice;
           bidPrice = askPrice - (spreadPercentage * askPrice);
           spread = askPrice - bidPrice;
-          print(
-            '🔄 [TRADING_FORM] Simulation price: $currentPrice, Ask: $askPrice, Bid: $bidPrice',
-          );
         }
 
         // Update the current price for the AI recommender
@@ -1312,20 +1296,21 @@ class _ComprehensivePaperTradingPageState
 
     // Use live simulation chart data if available
     if (paperProvider.isSimulationRunning) {
+      // Try to get data for the current timeframe first
+      final timeframeData = paperProvider.getChartDataForTimeframe(_selectedSymbol, _selectedTimeframe);
+      if (timeframeData.isNotEmpty) {
+        return timeframeData;
+      }
+      
+      // Fallback to general chart data
       final chartData = paperProvider.chartData;
       if (chartData.containsKey(_selectedSymbol)) {
         final candles = chartData[_selectedSymbol]!;
-        print(
-          '📊 [CHART_DATA] Using live simulation data: ${_selectedSymbol} with ${candles.length} candles',
-        );
         return candles;
       }
     }
 
     // Fallback: generate initial data if simulation not running
-    print(
-      '📊 [CHART_DATA] Simulation not running, generating initial data for ${_selectedSymbol}',
-    );
     return _generateInitialChartData();
   }
 
@@ -1390,6 +1375,89 @@ class _ComprehensivePaperTradingPageState
     return candles.reversed.toList(); // Most recent first
   }
 
+  // Generate realistic currency data based on simulation data for AI recommender
+  Currency _generateCurrencyDataFromSimulation(double currentPrice, List<Candlestick> recentCandles) {
+    if (recentCandles.length < 10) {
+      // Not enough data, return neutral
+      return Currency(
+        currency: _selectedSymbol.split('/')[0],
+        currentValue: currentPrice,
+        dataSource: 'simulation',
+        forecast7Days: [currentPrice],
+        lastRefreshed: DateTime.now().toIso8601String(),
+        pair: _selectedSymbol,
+        timeZone: 'UTC',
+        tomorrowChange: 0.0,
+        tomorrowChangePercent: 0.0,
+        tomorrowPrediction: currentPrice,
+        tomorrowTrend: 'neutral',
+        weekChange: 0.0,
+        weekChangePercent: 0.0,
+        weekPrediction: currentPrice,
+        weekTrend: 'neutral',
+      );
+    }
+
+    // Analyze recent price movement to determine trends
+    final recentPrices = recentCandles.take(10).map((c) => c.close).toList();
+    final oldestPrice = recentPrices.last;
+    final newestPrice = recentPrices.first;
+    
+    // Calculate short-term trend (last 10 candles)
+    final shortTermChange = newestPrice - oldestPrice;
+    final shortTermChangePercent = (shortTermChange / oldestPrice) * 100;
+    
+    // Determine trends based on price movement
+    String tomorrowTrend = 'neutral';
+    String weekTrend = 'neutral';
+    double tomorrowChangePercent = 0.0;
+    double weekChangePercent = 0.0;
+    
+    if (shortTermChangePercent > 0.1) {
+      tomorrowTrend = 'up';
+      weekTrend = 'up';
+      tomorrowChangePercent = shortTermChangePercent * 0.5; // Conservative estimate
+      weekChangePercent = shortTermChangePercent * 1.2; // Slightly more optimistic
+    } else if (shortTermChangePercent < -0.1) {
+      tomorrowTrend = 'down';
+      weekTrend = 'down';
+      tomorrowChangePercent = shortTermChangePercent * 0.5; // Conservative estimate
+      weekChangePercent = shortTermChangePercent * 1.2; // Slightly more pessimistic
+    } else {
+      // Neutral trend with small random variations
+      final random = Random();
+      final randomChange = (random.nextDouble() - 0.5) * 0.2; // ±0.1%
+      tomorrowChangePercent = randomChange;
+      weekChangePercent = randomChange * 2;
+      
+      if (randomChange > 0.05) {
+        tomorrowTrend = 'up';
+        weekTrend = 'up';
+      } else if (randomChange < -0.05) {
+        tomorrowTrend = 'down';
+        weekTrend = 'down';
+      }
+    }
+
+    return Currency(
+      currency: _selectedSymbol.split('/')[0],
+      currentValue: currentPrice,
+      dataSource: 'simulation',
+      forecast7Days: [currentPrice * (1 + weekChangePercent / 100)],
+      lastRefreshed: DateTime.now().toIso8601String(),
+      pair: _selectedSymbol,
+      timeZone: 'UTC',
+      tomorrowChange: shortTermChange * 0.5,
+      tomorrowChangePercent: tomorrowChangePercent,
+      tomorrowPrediction: currentPrice * (1 + tomorrowChangePercent / 100),
+      tomorrowTrend: tomorrowTrend,
+      weekChange: shortTermChange * 1.2,
+      weekChangePercent: weekChangePercent,
+      weekPrediction: currentPrice * (1 + weekChangePercent / 100),
+      weekTrend: weekTrend,
+    );
+  }
+
   // Old tab methods removed - now using comprehensive single view
 
   void _showFullscreenChart() {
@@ -1403,14 +1471,8 @@ class _ComprehensivePaperTradingPageState
     if (paperProvider.isSimulationRunning &&
         paperProvider.currentPrices.containsKey(_selectedSymbol)) {
       currentPrice = paperProvider.currentPrices[_selectedSymbol]!;
-      print(
-        '📊 [FULLSCREEN_CHART] Using simulation data: ${_selectedSymbol} = $currentPrice',
-      );
     }
 
-    print(
-      '📊 [FULLSCREEN_CHART] Opening chart for ${_selectedSymbol} ${_selectedTimeframe} with ${candles.length} candles',
-    );
 
     Navigator.push(
       context,
@@ -1786,11 +1848,14 @@ class _ComprehensivePaperTradingPageState
     // Generate recent candles for technical analysis
     final recentCandles = _generateRecentCandles(currentPrice);
 
+    // Generate realistic currency data based on simulation data
+    final currencyData = _generateCurrencyDataFromSimulation(currentPrice, recentCandles);
+
     return AIRecommenderWidget(
       symbol: _selectedSymbol,
       currentPrice: currentPrice,
       recentCandles: recentCandles,
-      currencyData: null, // No currency data since we only use simulation data
+      currencyData: currencyData,
       onRecommendationChanged: () {
         // Optionally update UI based on recommendation
         setState(() {});
@@ -1897,13 +1962,17 @@ class _ComprehensivePaperTradingPageState
 
   void _openPosition(PaperTradingProvider paperProvider, double currentPrice) {
     final volume = double.tryParse(_volumeController.text) ?? 0.1;
+    final stopLoss = double.tryParse(_stopLossController.text);
+    final takeProfit = double.tryParse(_takeProfitController.text);
 
-    // Add position to paper trading
+    // Add position to paper trading with stop loss and take profit
     paperProvider.openPosition(
       symbol: _selectedSymbol,
       type: _selectedType,
       volume: volume,
       price: currentPrice,
+      stopLoss: stopLoss,
+      takeProfit: takeProfit,
     );
 
     // Show success message

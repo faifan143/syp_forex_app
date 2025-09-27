@@ -854,7 +854,7 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
 
           // Main prediction value
           Text(
-            prediction.formattedMid,
+            prediction.mid.toStringAsFixed(0),
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -877,21 +877,21 @@ class _EnhancedSypPageState extends State<EnhancedSypPage> {
               Expanded(
                 child: _buildCompactDetail(
                   'ask'.tr,
-                  prediction.formattedAsk,
+                  prediction.ask.toStringAsFixed(0),
                   Colors.red[600]!,
                 ),
               ),
               Expanded(
                 child: _buildCompactDetail(
                   'bid'.tr,
-                  prediction.formattedBid,
+                  prediction.bid.toStringAsFixed(0),
                   Colors.green[600]!,
                 ),
               ),
               Expanded(
                 child: _buildCompactDetail(
                   'spread'.tr,
-                  prediction.spread.toString(),
+                  prediction.spread.toStringAsFixed(0),
                   Colors.grey[600]!,
                 ),
               ),

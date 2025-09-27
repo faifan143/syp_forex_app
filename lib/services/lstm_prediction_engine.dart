@@ -33,23 +33,23 @@ class LSTMPredictionEngine {
           (currentAsk.toInt() * 1000 + currentBid.toInt()) % 0xFFFFFFFF;
       final random = Random(seedValue);
 
-      // Process change (-100 to +100 SYP range) - exact same as Python
-      final realisticChange =
-          random.nextDouble() * 200 - 100; // -100 to +100 SYP
-      final predictedMid = currentMid + realisticChange;
+      // Process change (-100 to +100 SYP range)
+      final realisticChange = random.nextDouble() * 200 - 100; // -100..+100
+      final predictedMidRaw = currentMid + realisticChange;
 
-      // Round to nearest 5 (so last digit is 0 or 5) - exact same as Python
-      final roundedPredictedMid = (predictedMid / 5).round() * 5;
-      // Calculate ask and bid using the exact Python logic
-      // First calculate ask from the predicted mid using the formula: Ask = Mid / (1 - 0.002)
-      final predictedAsk = roundedPredictedMid / 0.998;
-      final roundedPredictedAsk =
-          (predictedAsk / 5).round() * 5; // Round ask to nearest 5
-      // Use the formula: Bid ≈ Ask - (0.004 × Ask)
-      final predictedBid = roundedPredictedAsk - (0.004 * roundedPredictedAsk);
+      // Always ceil mid to the next multiple of 5
+      final roundedPredictedMid = (predictedMidRaw / 5).ceil() * 5;
 
-      final roundedPredictedBid =
-          (predictedBid / 5).round() * 5; // Round bid to nearest 5
+      // Variable spread based on current market spread with a small jitter
+      final currentSpread = (currentAsk - currentBid).abs();
+      final spreadJitter = (random.nextDouble() * 20) - 10; // -10..+10
+      final predictedSpreadRaw = (currentSpread + spreadJitter).clamp(10, 150);
+      // Make half-spread a multiple of 5 so ask/bid remain multiples of 5
+      final halfSpreadRounded = ((predictedSpreadRaw / 2) / 5).ceil() * 5;
+
+      // Build ask/bid symmetrically around mid; both multiples of 5
+      final roundedPredictedAsk = roundedPredictedMid + halfSpreadRounded;
+      final roundedPredictedBid = roundedPredictedMid - halfSpreadRounded;
 
       // Final validation to prevent NaN values
       if (roundedPredictedAsk.isNaN ||
@@ -67,7 +67,6 @@ class LSTMPredictionEngine {
       );
     } catch (e) {
       // Re-throw the error instead of returning fallback values
-      print('LSTM Error: Failed to generate prediction: $e');
       rethrow;
     }
   }

@@ -370,7 +370,7 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
                 color: isDark ? Colors.white70 : Colors.black54,
                 size: 18,
               ),
-              items: ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1'].map((tf) {
+              items: ['M1', 'M5', 'M15', 'H1', 'H4', 'D1'].map((tf) {
                 return DropdownMenuItem(value: tf, child: Text(tf));
               }).toList(),
               onChanged: (value) {
@@ -913,8 +913,6 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
         return '5m';
       case 'M15':
         return '15m';
-      case 'M30':
-        return '30m';
       case 'H1':
         return '1h';
       case 'H4':
@@ -1312,11 +1310,6 @@ class XAxisPainter extends CustomPainter {
               (totalCandles - candleIdx - 1) * 15; // 15 minutes per candle
           dateTime = now.subtract(Duration(minutes: timeOffset));
           break;
-        case 'M30':
-          timeOffset =
-              (totalCandles - candleIdx - 1) * 30; // 30 minutes per candle
-          dateTime = now.subtract(Duration(minutes: timeOffset));
-          break;
         case 'H1':
           timeOffset = (totalCandles - candleIdx - 1); // 1 hour per candle
           dateTime = now.subtract(Duration(hours: timeOffset));
@@ -1348,11 +1341,6 @@ class XAxisPainter extends CustomPainter {
       case 'M15':
         // 15-minute intervals: show HH:MM (rounded to nearest 15)
         final minute = (dateTime.minute ~/ 15) * 15;
-        return '${dateTime.hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
-
-      case 'M30':
-        // 30-minute intervals: show HH:MM (rounded to nearest 30)
-        final minute = (dateTime.minute ~/ 30) * 30;
         return '${dateTime.hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
       case 'H1':
@@ -1468,15 +1456,17 @@ class CandlestickPainter extends CustomPainter {
     double height,
     double priceRange,
   ) {
-    final yHigh = height * (1 - (candle.high - minPrice) / priceRange);
-    final yLow = height * (1 - (candle.low - minPrice) / priceRange);
-    final yOpen = height * (1 - (candle.open - minPrice) / priceRange);
-    final yClose = height * (1 - (candle.close - minPrice) / priceRange);
+    // Clamp Y positions to stay within bounds (with small margin)
+    final margin = 2.0;
+    final yHigh = (height * (1 - (candle.high - minPrice) / priceRange)).clamp(margin, height - margin);
+    final yLow = (height * (1 - (candle.low - minPrice) / priceRange)).clamp(margin, height - margin);
+    final yOpen = (height * (1 - (candle.open - minPrice) / priceRange)).clamp(margin, height - margin);
+    final yClose = (height * (1 - (candle.close - minPrice) / priceRange)).clamp(margin, height - margin);
 
     final isGreen = candle.close >= candle.open;
     final color = isGreen ? Colors.green : Colors.red;
 
-    // Draw wick (high-low line)
+    // Draw wick (high-low line) - ensure it stays within bounds
     final wickPaint = Paint()
       ..color = color
       ..strokeWidth = 1;
@@ -1495,8 +1485,12 @@ class CandlestickPainter extends CustomPainter {
         ? minBodyHeight
         : bodyHeight;
 
+    // Ensure body stays within bounds
+    final clampedBodyTop = bodyTop.clamp(margin, height - margin - actualBodyHeight);
+    final clampedBodyHeight = actualBodyHeight.clamp(minBodyHeight, height - margin - clampedBodyTop);
+
     canvas.drawRect(
-      Rect.fromLTWH(x - width / 2, bodyTop, width, actualBodyHeight),
+      Rect.fromLTWH(x - width / 2, clampedBodyTop, width, clampedBodyHeight),
       bodyPaint,
     );
 
@@ -1507,7 +1501,7 @@ class CandlestickPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     canvas.drawRect(
-      Rect.fromLTWH(x - width / 2, bodyTop, width, actualBodyHeight),
+      Rect.fromLTWH(x - width / 2, clampedBodyTop, width, clampedBodyHeight),
       outlinePaint,
     );
   }
@@ -1528,6 +1522,7 @@ class CandlestickPainter extends CustomPainter {
 
     final path = Path();
     bool firstPoint = true;
+    final margin = 2.0;
 
     for (int i = period - 1; i < candles.length; i++) {
       double sum = 0;
@@ -1538,7 +1533,8 @@ class CandlestickPainter extends CustomPainter {
 
       final x =
           i * (size.width / candles.length) + (size.width / candles.length) / 2;
-      final y = size.height * (1 - (ma - minPrice) / priceRange);
+      // Clamp Y position to stay within bounds
+      final y = (size.height * (1 - (ma - minPrice) / priceRange)).clamp(margin, size.height - margin);
 
       if (firstPoint) {
         path.moveTo(x, y);

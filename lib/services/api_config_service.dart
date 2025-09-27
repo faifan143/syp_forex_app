@@ -110,6 +110,5 @@ class ApiConfigService {
     final timestamp = DateTime.now().toIso8601String();
     final logMessage = '[$_logTag] [$timestamp] $message';
     developer.log(logMessage, name: 'SYP_Forex_App');
-    print(logMessage);
   }
 }

@@ -326,7 +326,6 @@ class Mt5ApiService {
     final timestamp = DateTime.now().toIso8601String();
     final logMessage = '[$_logTag] [$timestamp] [$method] $message';
     developer.log(logMessage, name: 'SYP_Forex_App');
-    print(logMessage);
   }
 }
 

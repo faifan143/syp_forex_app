@@ -20,7 +20,6 @@ class ApiService {
     final logMessage = '[$_logTag] [$timestamp] ${method != null ? '[$method] ' : ''}${endpoint != null ? '[$endpoint] ' : ''}$message';
     
     developer.log(logMessage, name: 'SYP_Forex_App');
-    print(logMessage);
     
 
   }

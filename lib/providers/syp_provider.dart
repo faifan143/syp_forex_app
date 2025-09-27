@@ -30,7 +30,6 @@ class SypProvider extends GetxController {
         '[$_logTag] [$timestamp] ${method != null ? '[$method] ' : ''}$message';
 
     developer.log(logMessage, name: 'SYP_Forex_App');
-    print(logMessage);
   }
 
   // Getters

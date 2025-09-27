@@ -6,6 +6,7 @@ import '../models/paper_trading_models.dart';
 import '../models/forex_models.dart';
 import '../services/market_simulation_service.dart';
 import '../services/simulation_api_service.dart';
+import '../services/timeframe_converter.dart';
 
 class PaperTradingProvider extends GetxController {
   VirtualWallet _wallet = VirtualWallet.initial();
@@ -19,6 +20,7 @@ class PaperTradingProvider extends GetxController {
   Map<String, int> _currentDataIndex = {}; // Track current position in M1 data
   Map<String, double> _currentPrices = {};
   Map<String, List<Map<String, double>>> _chartData = {};
+  Map<String, Map<String, List<Map<String, double>>>> _timeframeData = {}; // Store data for all timeframes
   bool _isSimulationRunning = false;
   Timer? _simulationTimer;
   String _currentTimeframe = '1m';
@@ -36,6 +38,16 @@ class PaperTradingProvider extends GetxController {
   bool get isSimulationRunning => _isSimulationRunning;
   Map<String, double> get currentPrices => _currentPrices;
   Map<String, List<Map<String, double>>> get chartData => _chartData;
+  Map<String, Map<String, List<Map<String, double>>>> get timeframeData => _timeframeData;
+  
+  // Get chart data for specific timeframe
+  List<Map<String, double>> getChartDataForTimeframe(String symbol, String timeframe) {
+    if (_timeframeData.containsKey(symbol) && 
+        _timeframeData[symbol]!.containsKey(timeframe)) {
+      return _timeframeData[symbol]![timeframe]!;
+    }
+    return [];
+  }
   Map<String, int> get currentDataIndex => _currentDataIndex;
   Map<String, List<Map<String, dynamic>>> get simulationData => _simulationData;
   Stream<Map<String, List<Map<String, double>>>>? get chartDataStream =>
@@ -62,7 +74,6 @@ class PaperTradingProvider extends GetxController {
 
   // Load simulation data from Flask API
   Future<void> loadSimulationData(String symbol) async {
-    print('🚀 [PAPER_TRADING_PROVIDER] Loading simulation data for symbol: $symbol');
     try {
       _setLoading(true);
 
@@ -76,74 +87,54 @@ class PaperTradingProvider extends GetxController {
         currency = symbol;
       }
       
-      print('🚀 [PAPER_TRADING_PROVIDER] Using currency code: $currency');
       
       // Validate currency code
       final validCurrencies = ['EUR', 'GBP', 'AUD', 'NZD', 'JPY', 'CHF', 'CAD', 'SEK', 'TRY', 'CNH'];
       if (!validCurrencies.contains(currency)) {
-        print('❌ [PAPER_TRADING_PROVIDER] Invalid currency code: $currency');
         return;
       }
 
       // Get simulation data from Flask API
-      print('🚀 [PAPER_TRADING_PROVIDER] Calling SimulationApiService.getSimulationData($currency)');
       final simulationData = await SimulationApiService.getSimulationData(
         currency,
       );
       
       if (simulationData != null && simulationData.data.isNotEmpty) {
-        print('✅ [PAPER_TRADING_PROVIDER] Successfully loaded simulation data: ${simulationData.data.length} records');
-        print('✅ [PAPER_TRADING_PROVIDER] First record: ${simulationData.data.first}');
-        print('✅ [PAPER_TRADING_PROVIDER] Last record: ${simulationData.data.last}');
         
         _simulationData[symbol] = simulationData.data;
-        _currentDataIndex[symbol] =
-            499; // Start from 500th record (index 499) to have historical context
+        
+        // Find the last day's beginning to start simulation from
+        final lastDayStartIndex = _findLastDayStartIndex(simulationData.data);
+        _currentDataIndex[symbol] = lastDayStartIndex;
 
-        // Initialize current price with 500th data point (historical context)
+        // Initialize current price with last day's first data point
         final currencyPair = _getCurrencyPairFromCode(symbol);
         if (currencyPair != null) {
-          if (_simulationData[symbol]!.isNotEmpty &&
-              _simulationData[symbol]!.length > 499) {
-            final startData =
-                _simulationData[symbol]![499]; // 500th record (index 499)
+          if (_simulationData[symbol]!.isNotEmpty && lastDayStartIndex >= 0) {
+            final startData = _simulationData[symbol]![lastDayStartIndex];
             _currentPrices[currencyPair] = _parsePrice(startData);
-            print('✅ [PAPER_TRADING_PROVIDER] Set current price from 500th record: ${_currentPrices[currencyPair]}');
           } else if (_simulationData[symbol]!.isNotEmpty) {
             // Fallback to first data point if not enough data
             final firstData = _simulationData[symbol]!.first;
             _currentPrices[currencyPair] = _parsePrice(firstData);
             _currentDataIndex[symbol] = 0; // Reset to start if not enough data
-            print('✅ [PAPER_TRADING_PROVIDER] Set current price from first record: ${_currentPrices[currencyPair]}');
           }
         }
 
         // Generate initial chart data from simulation data (progressive from start)
         _generateChartDataFromSimulation(symbol);
         if (currencyPair != null) {
-          print('✅ [PAPER_TRADING_PROVIDER] Generated chart data: ${_chartData[currencyPair]?.length ?? 0} candles');
         }
 
         // Log the starting data point and some context
         if (_simulationData[symbol]!.isNotEmpty) {
-          final startData = _simulationData[symbol]![499]; // 500th record
+          final startData = _simulationData[symbol]![lastDayStartIndex];
           final firstData = _simulationData[symbol]!.first;
           final lastData = _simulationData[symbol]!.last;
-          print('📊 [PAPER_TRADING_PROVIDER] Data summary:');
-          print('📊 [PAPER_TRADING_PROVIDER] - Total records: ${_simulationData[symbol]!.length}');
-          print('📊 [PAPER_TRADING_PROVIDER] - Starting from index: 499');
-          print('📊 [PAPER_TRADING_PROVIDER] - First record time: ${firstData['Datetime']}');
-          print('📊 [PAPER_TRADING_PROVIDER] - Last record time: ${lastData['Datetime']}');
         }
       } else {
-        print('❌ [PAPER_TRADING_PROVIDER] Failed to load simulation data or data is empty');
-        print('❌ [PAPER_TRADING_PROVIDER] simulationData is null: ${simulationData == null}');
-        if (simulationData != null) {
-          print('❌ [PAPER_TRADING_PROVIDER] Data length: ${simulationData.data.length}');
-        }
       }
     } catch (e) {
-      print('❌ [PAPER_TRADING_PROVIDER] Exception loading simulation data: $e');
       _setError('Failed to load simulation data: $e');
     } finally {
       _setLoading(false);
@@ -212,54 +203,32 @@ class PaperTradingProvider extends GetxController {
     final dataToUse = data.take(currentIndex + 1).toList();
 
     if (dataToUse.isEmpty) {
-      print('❌ [CHART_GENERATION] No data to use for chart generation');
       return;
     }
 
-    // Convert M1 data to candles for the selected timeframe
-    final timeframeMinutes = _getTimeframeMinutes(_currentTimeframe);
-    final groupedData = <String, List<Map<String, dynamic>>>{};
-
-    // Group data by timeframe (only up to current position)
-    for (final record in dataToUse) {
-      final timestamp = _parseTimestamp(record);
-      final timeKey = _getTimeKey(timestamp, timeframeMinutes);
-
-      if (!groupedData.containsKey(timeKey)) {
-        groupedData[timeKey] = [];
-      }
-      groupedData[timeKey]!.add(record);
+    // Generate data for all timeframes using TimeframeConverter
+    final timeframes = ['1m', '5m', '15m', '1h', '4h', '1d'];
+    
+    if (!_timeframeData.containsKey(symbol)) {
+      _timeframeData[symbol] = {};
     }
 
-    // Create candles from grouped data
-    for (final timeKey in groupedData.keys.toList()..sort()) {
-      final group = groupedData[timeKey]!;
-      if (group.isEmpty) continue;
-
-      final prices = group.map((r) => _parsePrice(r)).toList();
-      final open = prices.first;
-      final close = prices.last;
-      final high = prices.reduce((a, b) => a > b ? a : b);
-      final low = prices.reduce((a, b) => a < b ? a : b);
-
-      candles.add({
-        'open': open,
-        'high': high,
-        'low': low,
-        'close': close,
-        'volume': group.length.toDouble(),
-      });
+    for (final timeframe in timeframes) {
+      final timeframeCandles = TimeframeConverter.convertToTimeframe(dataToUse, timeframe);
+      _timeframeData[symbol]![timeframe] = timeframeCandles;
     }
 
-    // Limit to reasonable number of candles for performance (e.g., last 155 candles)
-    final maxCandles = 155;
-    final finalCandles = candles.length > maxCandles
-        ? candles.sublist(candles.length - maxCandles)
-        : candles;
-
-    // Store chart data with currency pair as key for chart access
+    // Store chart data for the current timeframe
     final currencyPair = _getCurrencyPairFromCode(symbol);
     if (currencyPair != null) {
+      final currentTimeframeCandles = _timeframeData[symbol]![_currentTimeframe] ?? [];
+      
+      // Limit to reasonable number of candles for performance (e.g., last 155 candles)
+      final maxCandles = 155;
+      final finalCandles = currentTimeframeCandles.length > maxCandles
+          ? currentTimeframeCandles.sublist(currentTimeframeCandles.length - maxCandles)
+          : currentTimeframeCandles;
+      
       _chartData[currencyPair] = finalCandles;
     }
     update();
@@ -279,61 +248,24 @@ class PaperTradingProvider extends GetxController {
     return DateTime.now(); // Fallback
   }
 
-  // Get time key for grouping data by timeframe
-  String _getTimeKey(DateTime timestamp, int timeframeMinutes) {
-    final minutes = timestamp.minute;
-    final groupedMinutes = (minutes ~/ timeframeMinutes) * timeframeMinutes;
-    final groupedTime = DateTime(
-      timestamp.year,
-      timestamp.month,
-      timestamp.day,
-      timestamp.hour,
-      groupedMinutes,
-    );
-    return groupedTime.toIso8601String();
-  }
-
-  // Get timeframe in minutes
-  int _getTimeframeMinutes(String timeframe) {
-    switch (timeframe) {
-      case '1m':
-        return 1;
-      case '5m':
-        return 5;
-      case '15m':
-        return 15;
-      case '30m':
-        return 30;
-      case '1h':
-        return 60;
-      case '4h':
-        return 240;
-      case '1d':
-        return 1440;
-      default:
-        return 1;
-    }
-  }
 
   // Start simulation using real M1 data
   void startSimulation({String timeframe = '1m'}) {
-    print('🚀 [SIMULATION_START] Starting simulation with timeframe: $timeframe');
-    print('🚀 [SIMULATION_START] Current simulation running: $_isSimulationRunning');
     
     if (_isSimulationRunning) {
-      print('⚠️ [SIMULATION_START] Simulation already running, skipping start');
       return;
     }
 
     _isSimulationRunning = true;
     _currentTimeframe = timeframe;
-    print('✅ [SIMULATION_START] Simulation started successfully');
 
-    // Reset all symbols to start from 500th record (historical context)
+    // Reset all symbols to start from last day's beginning
     for (final symbol in _simulationData.keys) {
-      if (_simulationData[symbol]!.length > 499) {
-        _currentDataIndex[symbol] = 499; // Start from 500th record
-        final startData = _simulationData[symbol]![499];
+      final lastDayStartIndex = _findLastDayStartIndex(_simulationData[symbol]!);
+      _currentDataIndex[symbol] = lastDayStartIndex;
+      
+      if (_simulationData[symbol]!.isNotEmpty && lastDayStartIndex >= 0) {
+        final startData = _simulationData[symbol]![lastDayStartIndex];
         _currentPrices[symbol] = _parsePrice(startData);
       } else {
         _currentDataIndex[symbol] = 0; // Fallback to start if not enough data
@@ -384,22 +316,46 @@ class PaperTradingProvider extends GetxController {
         _updatePositionPrices();
         update();
       } else {
-        // Reached end of data, restart from beginning
-
-        _currentDataIndex[symbol] = 0;
-        final firstData = data[0];
+        // Reached end of data, restart from beginning of last day
+        final lastDayStartIndex = _findLastDayStartIndex(data);
+        _currentDataIndex[symbol] = lastDayStartIndex;
+        final startData = data[lastDayStartIndex];
+        
         // Store current price with currency pair as key
         final currencyPair = _getCurrencyPairFromCode(symbol);
         if (currencyPair != null) {
-          _currentPrices[currencyPair] = _parsePrice(firstData);
+          _currentPrices[currencyPair] = _parsePrice(startData);
         }
-        _generateChartDataFromSimulation(
-          symbol,
-        ); // Generate progressive chart from start
+        
+        _generateChartDataFromSimulation(symbol);
         _updatePositionPrices();
         update();
       }
     }
+  }
+
+  // Find the index of the first record of the last day in the dataset
+  int _findLastDayStartIndex(List<Map<String, dynamic>> data) {
+    if (data.isEmpty) return 0;
+    
+    // Get the last record's date
+    final lastRecord = data.last;
+    final lastDateTime = DateTime.parse(lastRecord['Datetime'] as String);
+    final lastDate = DateTime(lastDateTime.year, lastDateTime.month, lastDateTime.day);
+    
+    // Find the first record of the last day
+    for (int i = data.length - 1; i >= 0; i--) {
+      final recordDateTime = DateTime.parse(data[i]['Datetime'] as String);
+      final recordDate = DateTime(recordDateTime.year, recordDateTime.month, recordDateTime.day);
+      
+      if (recordDate.isBefore(lastDate)) {
+        // Found the first record of the last day (next index)
+        return i + 1;
+      }
+    }
+    
+    // If we reach here, all records are from the same day
+    return 0;
   }
 
   // Stop simulation
@@ -427,9 +383,23 @@ class PaperTradingProvider extends GetxController {
   void updateTimeframe(String timeframe) {
     _currentTimeframe = timeframe;
 
-    // Regenerate chart data for all symbols
+    // Update chart data for all symbols using stored timeframe data
     for (final symbol in _simulationData.keys) {
-      _generateChartDataFromSimulation(symbol);
+      final currencyPair = _getCurrencyPairFromCode(symbol);
+      if (currencyPair != null && 
+          _timeframeData.containsKey(symbol) && 
+          _timeframeData[symbol]!.containsKey(timeframe)) {
+        
+        final timeframeCandles = _timeframeData[symbol]![timeframe]!;
+        
+        // Limit to reasonable number of candles for performance
+        final maxCandles = 155;
+        final finalCandles = timeframeCandles.length > maxCandles
+            ? timeframeCandles.sublist(timeframeCandles.length - maxCandles)
+            : timeframeCandles;
+        
+        _chartData[currencyPair] = finalCandles;
+      }
     }
 
     update();
@@ -524,6 +494,8 @@ class PaperTradingProvider extends GetxController {
 
   // Update position prices with current market prices and check for stop loss/take profit
   void _updatePositionPrices() {
+    if (_wallet.openPositions.isEmpty) return;
+
     final updatedPositions = <Position>[];
     final positionsToClose = <Position>[];
 
@@ -541,8 +513,10 @@ class PaperTradingProvider extends GetxController {
     }
 
     // Close positions that hit stop loss or take profit
-    for (final position in positionsToClose) {
-      _closePositionAutomatically(position);
+    if (positionsToClose.isNotEmpty) {
+      for (final position in positionsToClose) {
+        _closePositionAutomatically(position);
+      }
     }
 
     _wallet = _wallet.copyWith(
@@ -560,25 +534,33 @@ class PaperTradingProvider extends GetxController {
       return false;
     }
 
+    bool shouldClose = false;
+    String reason = '';
+
     if (position.type == PositionType.buy) {
       // For buy positions
       if (position.stopLoss > 0 && currentPrice <= position.stopLoss) {
-        return true; // Stop loss hit
-      }
-      if (position.takeProfit > 0 && currentPrice >= position.takeProfit) {
-        return true; // Take profit hit
+        shouldClose = true;
+        reason = 'Stop Loss Hit';
+      } else if (position.takeProfit > 0 && currentPrice >= position.takeProfit) {
+        shouldClose = true;
+        reason = 'Take Profit Hit';
       }
     } else {
       // For sell positions
       if (position.stopLoss > 0 && currentPrice >= position.stopLoss) {
-        return true; // Stop loss hit
-      }
-      if (position.takeProfit > 0 && currentPrice <= position.takeProfit) {
-        return true; // Take profit hit
+        shouldClose = true;
+        reason = 'Stop Loss Hit';
+      } else if (position.takeProfit > 0 && currentPrice <= position.takeProfit) {
+        shouldClose = true;
+        reason = 'Take Profit Hit';
       }
     }
 
-    return false;
+    if (shouldClose) {
+    }
+
+    return shouldClose;
   }
 
   // Calculate commission for a position
@@ -590,6 +572,7 @@ class PaperTradingProvider extends GetxController {
   // Automatically close position when stop loss or take profit is hit
   void _closePositionAutomatically(Position position) {
     final currentPrice = position.currentPrice;
+
 
     // Use consistent P&L calculation with manual closing
     const double pipValue = 10.0; // $10 per pip per lot
@@ -605,6 +588,7 @@ class PaperTradingProvider extends GetxController {
     final realizedPnL = pips * pipValue * position.volume;
     final commission = _calculateCommission(position);
     final finalPnL = realizedPnL - commission;
+
 
     // Create trade record
     final trade = ClosedTrade(

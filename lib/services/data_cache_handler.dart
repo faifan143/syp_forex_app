@@ -37,7 +37,6 @@ class DataCacheService {
       await prefs.setString(_exchangeRatesKey, jsonEncode(ratesData));
       await prefs.setInt(_exchangeRatesTimestampKey, timestamp);
     } catch (e) {
-      print('Error caching exchange rates: $e');
     }
   }
 
@@ -60,7 +59,6 @@ class DataCacheService {
 
       return jsonDecode(ratesJson) as Map<String, dynamic>;
     } catch (e) {
-      print('Error getting cached exchange rates: $e');
       return null;
     }
   }
@@ -71,7 +69,6 @@ class DataCacheService {
       await prefs.remove(_exchangeRatesKey);
       await prefs.remove(_exchangeRatesTimestampKey);
     } catch (e) {
-      print('Error clearing exchange rates cache: $e');
     }
   }
 
@@ -96,7 +93,6 @@ class DataCacheService {
 
       await prefs.setString(cacheKey, jsonEncode(cachedData));
     } catch (e) {
-      print('Error caching prediction: $e');
     }
   }
 
@@ -125,7 +121,6 @@ class DataCacheService {
           .map((e) => (e as num).toDouble())
           .toList();
     } catch (e) {
-      print('Error getting cached prediction: $e');
       return null;
     }
   }

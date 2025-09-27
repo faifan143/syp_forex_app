@@ -8,10 +8,6 @@ class SimulationApiService {
   /// Get M1 simulation data for a specific currency
   static Future<SimulationData?> getSimulationData(String currency) async {
     final url = '$baseUrl/simulation/$currency';
-    print('🌐 [API_CALL] GET $url');
-    print('🌐 [API_CALL] Using API Host: ${ApiConfigService.forexApiHost}:${ApiConfigService.forexApiPort}');
-    print('🌐 [API_CALL] Headers: {"Content-Type": "application/json"}');
-    print('🌐 [API_CALL] Timeout: 30 seconds');
     
     try {
       final stopwatch = Stopwatch()..start();
@@ -23,43 +19,20 @@ class SimulationApiService {
           .timeout(const Duration(seconds: 30));
       stopwatch.stop();
       
-      print('🌐 [API_RESPONSE] Status Code: ${response.statusCode}');
-      print('🌐 [API_RESPONSE] Response Time: ${stopwatch.elapsedMilliseconds}ms');
-      print('🌐 [API_RESPONSE] Content Length: ${response.body.length} bytes');
-      print('🌐 [API_RESPONSE] Headers: ${response.headers}');
       
       if (response.statusCode == 200) {
-        print('🌐 [API_RESPONSE] Parsing JSON response...');
         final data = json.decode(response.body);
-        print('🌐 [API_RESPONSE] JSON parsed successfully');
-        print('🌐 [API_RESPONSE] Response keys: ${data.keys.toList()}');
         
         if (data.containsKey('data')) {
-          print('🌐 [API_RESPONSE] Data array length: ${(data['data'] as List).length}');
-          if ((data['data'] as List).isNotEmpty) {
-            print('🌐 [API_RESPONSE] First data record: ${(data['data'] as List).first}');
-            print('🌐 [API_RESPONSE] Last data record: ${(data['data'] as List).last}');
-          }
         }
         
-        print('🌐 [API_RESPONSE] Creating SimulationData object...');
         final simulationData = SimulationData.fromJson(data);
-        print('🌐 [API_RESPONSE] SimulationData created successfully');
-        print('🌐 [API_RESPONSE] Currency: ${simulationData.currency}');
-        print('🌐 [API_RESPONSE] Pair: ${simulationData.pair}');
-        print('🌐 [API_RESPONSE] Total Records: ${simulationData.totalRecords}');
-        print('🌐 [API_RESPONSE] Data Length: ${simulationData.data.length}');
-        print('🌐 [API_RESPONSE] Columns: ${simulationData.columns}');
         
         return simulationData;
       } else {
-        print('❌ [API_ERROR] HTTP ${response.statusCode}');
-        print('❌ [API_ERROR] Response Body: ${response.body}');
         return null;
       }
     } catch (e, stackTrace) {
-      print('❌ [API_EXCEPTION] Error fetching simulation data for $currency: $e');
-      print('❌ [API_EXCEPTION] Stack Trace: $stackTrace');
       return null;
     }
   }
@@ -80,10 +53,8 @@ class SimulationApiService {
           return List<String>.from(data['available_currencies'] ?? []);
         }
       }
-      print('Error fetching available currencies: ${response.statusCode}');
       return null;
     } catch (e) {
-      print('Exception fetching available currencies: $e');
       return null;
     }
   }
@@ -92,8 +63,6 @@ class SimulationApiService {
   static List<Map<String, double>> convertToChartCandles(
     SimulationData simulationData,
   ) {
-    print('🔄 [CHART_CONVERSION] Starting conversion of simulation data to chart candles');
-    print('🔄 [CHART_CONVERSION] Input data length: ${simulationData.data.length}');
     
     final candles = <Map<String, double>>[];
     int successCount = 0;
@@ -113,7 +82,6 @@ class SimulationApiService {
         final volume = (record['volume'] as num).toDouble();
         
         if (i < 3 || i >= simulationData.data.length - 3) {
-          print('🔄 [CHART_CONVERSION] Record $i: $datetime -> O:$open H:$high L:$low C:$close V:$volume');
         }
 
         candles.add({
@@ -126,22 +94,13 @@ class SimulationApiService {
         });
         successCount++;
       } catch (e, stackTrace) {
-        print('❌ [CHART_CONVERSION] Error parsing simulation record $i: $e');
-        print('❌ [CHART_CONVERSION] Record data: $record');
-        print('❌ [CHART_CONVERSION] Stack trace: $stackTrace');
         errorCount++;
         continue;
       }
     }
     
-    print('✅ [CHART_CONVERSION] Conversion completed:');
-    print('✅ [CHART_CONVERSION] - Successfully converted: $successCount records');
-    print('✅ [CHART_CONVERSION] - Errors: $errorCount records');
-    print('✅ [CHART_CONVERSION] - Total candles: ${candles.length}');
     
     if (candles.isNotEmpty) {
-      print('✅ [CHART_CONVERSION] First candle: ${candles.first}');
-      print('✅ [CHART_CONVERSION] Last candle: ${candles.last}');
     }
 
     return candles;
@@ -149,23 +108,16 @@ class SimulationApiService {
 
   /// Get current price from simulation data (most recent close price)
   static double? getCurrentPrice(SimulationData simulationData) {
-    print('💰 [CURRENT_PRICE] Getting current price from simulation data');
-    print('💰 [CURRENT_PRICE] Data length: ${simulationData.data.length}');
     
     if (simulationData.data.isEmpty) {
-      print('❌ [CURRENT_PRICE] No data available');
       return null;
     }
 
     try {
       final lastRecord = simulationData.data.last;
       final price = (lastRecord['close'] as num).toDouble();
-      print('✅ [CURRENT_PRICE] Current price: $price');
-      print('✅ [CURRENT_PRICE] Last record: $lastRecord');
       return price;
     } catch (e, stackTrace) {
-      print('❌ [CURRENT_PRICE] Error getting current price: $e');
-      print('❌ [CURRENT_PRICE] Stack trace: $stackTrace');
       return null;
     }
   }
@@ -196,7 +148,6 @@ class SimulationApiService {
 
       return null;
     } catch (e) {
-      print('Error getting price at time: $e');
       return null;
     }
   }
