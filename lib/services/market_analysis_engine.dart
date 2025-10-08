@@ -35,6 +35,7 @@ class MarketAnalysisService {
 
     final predictions = <double>[];
     double currentPrice = currentRate;
+    final double anchorPrice = currentRate; // mean-reversion anchor
 
     // Initialize trend state
     int trendDirection = random.nextBool() ? 1 : -1;
@@ -43,73 +44,71 @@ class MarketAnalysisService {
     for (int day = 1; day <= days; day++) {
       final baseVolatility = char.dailyVolatility;
 
-      // Market volatility component (from API data)
+      // Core market noise component
       final marketVolatility = random.nextGaussian() * baseVolatility;
 
-      // Trend component (very weak in forex)
-      if (random.nextDouble() < 0.3) {
+      // Trend component (kept weak for FX)
+      if (random.nextDouble() < 0.2) {
         trendDirection = random.nextBool() ? 1 : -1;
-        trendStrength = random.nextDouble() * 0.3;
+        trendStrength = random.nextDouble() * 0.2;
       }
-
+      trendStrength = trendStrength.clamp(0.0, 0.2);
       final trendComponent =
-          trendDirection *
-          trendStrength *
-          baseVolatility *
-          random.nextGaussian() *
-          0.5;
+          trendDirection * trendStrength * baseVolatility * random.nextGaussian() * 0.4;
 
-      // Mean reversion (very weak)
-      final meanReversion = -char.meanReversion * random.nextGaussian() * 0.3;
+      // Mean reversion towards the starting price
+      final deviationFromAnchor = (anchorPrice - currentPrice) / anchorPrice;
+      final meanReversion = char.meanReversion * deviationFromAnchor;
 
-      // Jump component (rare but realistic)
-      double jumpComponent = 0;
+      // Jump component (rare and capped)
+      double jumpComponent = 0.0;
       if (random.nextDouble() < char.jumpProbability) {
-        final jumpSize =
-            char.typicalRange.min +
-            random.nextDouble() *
-                (char.typicalRange.max - char.typicalRange.min);
-        jumpComponent = (random.nextBool() ? 1 : -1) * jumpSize;
+        final cappedJump = min(char.typicalRange.max, 0.002);
+        jumpComponent = (random.nextBool() ? 1 : -1) * cappedJump * (0.3 + 0.7 * random.nextDouble());
       }
 
-      // Day-of-week effects
-      final dayOfWeek = day % 7;
+      // Enhanced currency-specific adjustments with realistic factors
       double volatilityMultiplier = 1.0;
-      if (dayOfWeek == 0) {
-        // Sunday
-        volatilityMultiplier = 1.2;
-      } else if (dayOfWeek == 6) {
-        // Friday
-        volatilityMultiplier = 1.1;
-      }
-
-      // Currency-specific adjustments
+      double economicFactorAdjustment = 0.0;
+      
       if (currency == 'TRY') {
-        volatilityMultiplier *= 1.5;
-        if (random.nextDouble() < 0.1) {
-          jumpComponent += random.nextGaussian() * baseVolatility * 2;
-        }
-      } else if (['AUD', 'NZD'].contains(currency)) {
-        volatilityMultiplier *= 1.1;
-      } else if (currency == 'CHF') {
-        volatilityMultiplier *= 0.8;
+        // Turkish Lira: High volatility due to inflation, political factors
+        volatilityMultiplier *= 1.8; // Increased from 1.3
+        
+        // Add economic stress factor based on current rate level
+        final stressLevel = _calculateTurkishLiraStress(currentPrice, anchorPrice);
+        economicFactorAdjustment = stressLevel * baseVolatility * 0.5;
+        
+        // Add inflation expectation factor
+        final inflationFactor = _getInflationPressure(day, random) * baseVolatility * 0.3;
+        economicFactorAdjustment += inflationFactor;
+        
       } else if (currency == 'CNH') {
-        volatilityMultiplier *= 0.6;
+        // Chinese Yuan: Controlled volatility with policy intervention effects
+        volatilityMultiplier *= 1.2; // Increased from 0.8
+        
+        // Add policy intervention simulation
+        final interventionEffect = _simulatePBOCIntervention(currentPrice, anchorPrice, day, random);
+        economicFactorAdjustment = interventionEffect * baseVolatility;
+        
+        // Add trade war / economic policy factor
+        final policyFactor = _getTradeWarFactor(day, random) * baseVolatility * 0.2;
+        economicFactorAdjustment += policyFactor;
+        
+      } else if (currency == 'AUD' || currency == 'NZD') {
+        volatilityMultiplier *= 1.05;
+      } else if (currency == 'CHF') {
+        volatilityMultiplier *= 0.9;
       }
 
-      // Calculate total change
+      // Aggregate daily fractional change including economic factors
       double totalChange =
           (marketVolatility + trendComponent + meanReversion + jumpComponent) *
-          volatilityMultiplier;
+          volatilityMultiplier + economicFactorAdjustment;
 
-      // Apply realistic bounds
-      final maxDailyChange = char.typicalRange.max * 3;
+      // Apply realistic bounds using pair-specific range
+      final maxDailyChange = char.typicalRange.max;
       totalChange = totalChange.clamp(-maxDailyChange, maxDailyChange);
-
-      // Ensure very small changes
-      if (totalChange.abs() > 0.005) {
-        totalChange = totalChange.sign * 0.005;
-      }
 
       final newPrice = currentPrice * (1 + totalChange);
       predictions.add(newPrice);
@@ -134,6 +133,55 @@ class MarketAnalysisService {
     }
 
     return hash.abs();
+  }
+
+  /// Calculate Turkish Lira economic stress factor
+  static double _calculateTurkishLiraStress(double currentPrice, double anchorPrice) {
+    // Higher stress when TRY weakens significantly from anchor
+    final deviationRatio = (currentPrice - anchorPrice) / anchorPrice;
+    
+    // Stress increases exponentially with weakness
+    if (deviationRatio > 0) {
+      return min(deviationRatio * 2.0, 1.0); // Cap at 1.0
+    } else {
+      return max(deviationRatio * 0.5, -0.3); // Less stress when strengthening
+    }
+  }
+
+  /// Simulate inflation pressure on Turkish Lira
+  static double _getInflationPressure(int day, Random random) {
+    // Simulate periodic inflation concerns
+    final cyclicalPressure = sin(day * 0.1) * 0.3;
+    final randomShock = (random.nextDouble() - 0.5) * 0.4;
+    
+    // Generally positive pressure (inflationary)
+    return max(0.1 + cyclicalPressure + randomShock, 0.0);
+  }
+
+  /// Simulate PBOC intervention effects on CNY
+  static double _simulatePBOCIntervention(double currentPrice, double anchorPrice, int day, Random random) {
+    final deviationFromAnchor = (currentPrice - anchorPrice) / anchorPrice;
+    
+    // PBOC tends to intervene when CNY moves too far from target
+    final interventionThreshold = 0.015; // 1.5% deviation triggers intervention
+    
+    if (deviationFromAnchor.abs() > interventionThreshold) {
+      // Strong intervention to bring back to target
+      final interventionStrength = random.nextDouble() * 0.8 + 0.2; // 20-100% strength
+      return -deviationFromAnchor * interventionStrength * 0.5;
+    } else {
+      // Minor adjustments
+      return (random.nextDouble() - 0.5) * 0.1;
+    }
+  }
+
+  /// Simulate trade war and economic policy factors for CNY
+  static double _getTradeWarFactor(int day, Random random) {
+    // Simulate periodic trade tensions
+    final tensionCycle = sin(day * 0.05) * 0.2;
+    final policyShock = random.nextDouble() < 0.05 ? (random.nextDouble() - 0.5) * 0.3 : 0.0;
+    
+    return tensionCycle + policyShock;
   }
 }
 

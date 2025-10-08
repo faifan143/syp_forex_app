@@ -18,14 +18,15 @@ class DataCacheService {
   static const String _exchangeRatesKey = 'cached_exchange_rates';
   static const String _exchangeRatesTimestampKey =
       'cached_exchange_rates_timestamp';
-  static const String _predictionCachePrefix = 'prediction_cache_';
+  // Bump prefix to invalidate older cached predictions after algorithm updates
+  static const String _predictionCachePrefix = 'prediction_cache_v3_';
 
   final int cacheDurationSeconds;
   final int predictionCacheDurationSeconds;
 
   DataCacheService({
-    this.cacheDurationSeconds = 86400, // 1 day (24 * 60 * 60)
-    this.predictionCacheDurationSeconds = 86400, // 1 day (24 * 60 * 60)
+    this.cacheDurationSeconds = 3600, // 1 hour by default
+    this.predictionCacheDurationSeconds = 3600, // 1 hour by default
   });
 
   // Exchange Rates Cache

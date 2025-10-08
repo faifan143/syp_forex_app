@@ -22,7 +22,7 @@ class ForexProvider extends GetxController {
   // Caching
   DateTime? _lastDashboardFetch;
   DateTime? _lastRatesFetch;
-  static const Duration _cacheDuration = Duration(days: 1); // Cache for 1 day
+  static const Duration _cacheDuration = Duration(hours: 1); // Cache for 1 hour
 
   // Services
   final MarketSimulationService _marketService = MarketSimulationService();
@@ -44,10 +44,16 @@ class ForexProvider extends GetxController {
   // Cache checking methods
   bool get isDashboardCacheValid =>
       _lastDashboardFetch != null &&
-      DateTime.now().difference(_lastDashboardFetch!) < _cacheDuration;
+      DateTime.now().difference(_lastDashboardFetch!) < _cacheDuration &&
+      _lastDashboardFetch!.day == DateTime.now().day &&
+      _lastDashboardFetch!.month == DateTime.now().month &&
+      _lastDashboardFetch!.year == DateTime.now().year;
   bool get isRatesCacheValid =>
       _lastRatesFetch != null &&
-      DateTime.now().difference(_lastRatesFetch!) < _cacheDuration;
+      DateTime.now().difference(_lastRatesFetch!) < _cacheDuration &&
+      _lastRatesFetch!.day == DateTime.now().day &&
+      _lastRatesFetch!.month == DateTime.now().month &&
+      _lastRatesFetch!.year == DateTime.now().year;
 
   // Available pairs and timeframes (configured for simulation)
   List<Map<String, String>> get availablePairs => [

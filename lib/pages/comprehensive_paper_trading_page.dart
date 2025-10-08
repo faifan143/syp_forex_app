@@ -789,7 +789,7 @@ class _ComprehensivePaperTradingPageState
                               ),
                               _buildPriceCard(
                                 'spread'.tr,
-                                spread * 10000,
+                                spread,
                                 Colors.orange[600]!,
                               ),
                             ],
@@ -1489,6 +1489,7 @@ class _ComprehensivePaperTradingPageState
       ],
     );
   }
+
 
   Widget _buildEnhancedDropdown(
     String label,

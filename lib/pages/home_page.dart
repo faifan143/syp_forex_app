@@ -231,7 +231,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildRatesView(List<ForexRate> rates, ForexProvider forexProvider) {
     return RefreshIndicator(
       onRefresh: () async {
-        await forexProvider.loadForexDashboard();
+        await forexProvider.loadForexDashboard(forceRefresh: true);
       },
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
@@ -333,7 +333,7 @@ class _HomePageState extends State<HomePage> {
     return RefreshIndicator(
       onRefresh: () async {
         final forexProvider = Get.find<ForexProvider>();
-        await forexProvider.loadForexDashboard();
+        await forexProvider.loadForexDashboard(forceRefresh: true);
       },
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
@@ -418,89 +418,10 @@ class _HomePageState extends State<HomePage> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                // Row(
-                //   children: [
-                //     Text(
-                //       isUp
-                //           ? '+${currency.tomorrowChange.toStringAsFixed(4)}'
-                //           : currency.tomorrowChange.toStringAsFixed(4),
-                //       style: TextStyle(
-                //         color: changeColor,
-                //         fontWeight: FontWeight.w600,
-                //         fontSize: 14,
-                //       ),
-                //     ),
-                //     const SizedBox(width: 4),
-                //     Text(
-                //       currency.formattedTomorrowChangePercent,
-                //       style: TextStyle(
-                //         color: changeColor,
-                //         fontWeight: FontWeight.w600,
-                //         fontSize: 14,
-                //       ),
-                //     ),
-                //   ],
-                // ),
+        
               ],
             ),
           ),
-
-          // const SizedBox(height: 12),
-
-          // // Tomorrow prediction
-          // Container(
-          //   margin: const EdgeInsets.symmetric(horizontal: 16),
-          //   padding: const EdgeInsets.all(12),
-          //   decoration: BoxDecoration(
-          //     color: Theme.of(
-          //       context,
-          //     ).colorScheme.surfaceVariant.withOpacity(0.3),
-          //     borderRadius: BorderRadius.circular(8),
-          //   ),
-          //   child: Row(
-          //     children: [
-          //       Icon(
-          //         Icons.calendar_today,
-          //         size: 16,
-          //         color: Theme.of(context).colorScheme.primary,
-          //       ),
-          //       const SizedBox(width: 8),
-          //       Text(
-          //         'tomorrow'.tr,
-          //         style: Theme.of(
-          //           context,
-          //         ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-          //       ),
-          //       const Spacer(),
-          //       Text(
-          //         currency.tomorrowPrediction.toStringAsFixed(4),
-          //         style: Theme.of(
-          //           context,
-          //         ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-          //       ),
-          //       const SizedBox(width: 8),
-          //       Text(
-          //         isUp
-          //             ? '+${currency.tomorrowChange.toStringAsFixed(4)}'
-          //             : currency.tomorrowChange.toStringAsFixed(4),
-          //         style: TextStyle(
-          //           color: changeColor,
-          //           fontWeight: FontWeight.w600,
-          //           fontSize: 12,
-          //         ),
-          //       ),
-          //       const SizedBox(width: 4),
-          //       Text(
-          //         currency.formattedTomorrowChangePercent,
-          //         style: TextStyle(
-          //           color: changeColor,
-          //           fontWeight: FontWeight.w600,
-          //           fontSize: 12,
-          //         ),
-          //       ),
-          //     ],
-          //   ),
-          // ),
 
           // 7-Day Predictions (if available)
           if (currency.forecast7Days.isNotEmpty) ...[

@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../models/forex_response_models.dart';
 import 'package:syp_forex_app/services/market_behavior_profiles.dart';
 import 'package:syp_forex_app/services/data_cache_handler.dart';
 import 'package:syp_forex_app/services/market_analysis_engine.dart';
+import 'package:syp_forex_app/services/volatility_service.dart';
+import 'package:syp_forex_app/services/enhanced_forex_calculator.dart';
 
 /// Forex Data Service - Handles data processing and caching
 ///
@@ -119,6 +122,16 @@ class ForexDataService {
     String toCurrency,
   ) async {
     try {
+      // Use enhanced calculator for high-volatility pairs
+      if ((fromCurrency == 'USD' && (toCurrency == 'TRY' || toCurrency == 'CNY' || toCurrency == 'CNH')) ||
+          (toCurrency == 'USD' && (fromCurrency == 'TRY' || fromCurrency == 'CNY' || fromCurrency == 'CNH'))) {
+        final enhancedRate = await EnhancedForexCalculator.getEnhancedRealTimeRate(fromCurrency, toCurrency);
+        if (enhancedRate != null) {
+          return enhancedRate;
+        }
+        // Fallback to standard method if enhanced fails
+      }
+
       final allRatesData = await getAllRates();
       if (allRatesData == null) return null;
 
@@ -168,14 +181,46 @@ class ForexDataService {
       return cachedPredictions.take(days).toList();
     }
 
-    final characteristics =
-        CurrencyCharacteristicsService.characteristics[currency];
-    final predictions = MarketAnalysisService.calculatePredictions(
-      currentRate,
-      currency,
-      days,
-      characteristics: characteristics,
-    );
+    List<double> predictions;
+
+    // Use enhanced calculator for high-volatility pairs
+    if (currency == 'TRY' || currency == 'CNH' || currency == 'CNY') {
+      // Try to get historical data for technical analysis
+      List<double>? historicalRates;
+      try {
+        historicalRates = await _getHistoricalRates(currency);
+      } catch (e) {
+        // Continue without historical data
+      }
+
+      predictions = EnhancedForexCalculator.calculateEnhancedPredictions(
+        currentRate,
+        currency,
+        days,
+        historicalRates: historicalRates,
+      );
+    } else {
+      // Use standard calculation for other currencies
+      // Start from static characteristics, then refine by ATR% if possible
+      CurrencyCharacteristics? characteristics =
+          CurrencyCharacteristicsService.characteristics[currency];
+
+      // Refine characteristics using offline ADR%-based service (independent)
+      if (characteristics != null) {
+        characteristics = await VolatilityService.buildCharacteristicsFromBaseline(
+          currency,
+          currentRate,
+          characteristics,
+        );
+      }
+
+      predictions = MarketAnalysisService.calculatePredictions(
+        currentRate,
+        currency,
+        days,
+        characteristics: characteristics,
+      );
+    }
 
     // Cache the predictions
     await _cacheManager.cachePrediction(currency, currentRate, predictions);
@@ -288,4 +333,54 @@ class ForexDataService {
   int get requestCount => _requestCount;
   int get dailyLimit => _dailyLimit;
   int get rateLimitRemaining => _dailyLimit - _requestCount;
+
+  /// Get historical rates for technical analysis (simulated for now)
+  Future<List<double>?> _getHistoricalRates(String currency) async {
+    try {
+      // For now, generate simulated historical data based on current market conditions
+      // In a real implementation, this would fetch actual historical data
+      final currentRate = await getRealTimeRate('USD', currency);
+      if (currentRate == null) return null;
+
+      final historicalRates = <double>[];
+      double rate = currentRate;
+      
+      // Generate 30 days of historical data (working backwards)
+      for (int i = 30; i > 0; i--) {
+        final dailyChange = _generateHistoricalChange(currency, i);
+        rate *= (1 + dailyChange);
+        historicalRates.insert(0, rate);
+      }
+      
+      return historicalRates;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Generate realistic historical daily changes for simulation
+  double _generateHistoricalChange(String currency, int daysAgo) {
+    final random = Random(currency.hashCode + daysAgo);
+    
+    double baseVolatility;
+    switch (currency) {
+      case 'TRY':
+        baseVolatility = 0.025; // 2.5% daily volatility
+        break;
+      case 'CNH':
+      case 'CNY':
+        baseVolatility = 0.008; // 0.8% daily volatility
+        break;
+      default:
+        baseVolatility = 0.01; // 1% default
+    }
+    
+    // Generate realistic daily change with some trend
+    final trendComponent = sin(daysAgo * 0.1) * baseVolatility * 0.3;
+    final randomComponent = (random.nextDouble() - 0.5) * baseVolatility * 2;
+    
+    return trendComponent + randomComponent;
+  }
+
+  // No external conversions needed in offline mode
 }
