@@ -24,13 +24,23 @@ class LSTMPredictionEngine {
         );
       }
 
-      final currentMid = (currentAsk + currentBid) / 2;
+      // Ensure correct bid/ask relationship for SYP market: bid should be higher than ask
+      // If input data has ask > bid (standard forex), swap them for SYP convention
+      double correctedAsk = currentAsk;
+      double correctedBid = currentBid;
+      if (currentAsk > currentBid) {
+        // Standard forex convention: swap to SYP convention
+        correctedAsk = currentBid;
+        correctedBid = currentAsk;
+      }
+
+      final currentMid = (correctedAsk + correctedBid) / 2;
 
       // LSTM Neural Network Prediction for Damascus
       // Use consistent seed based on current Damascus rate for same prediction
       // This ensures same prediction for same rate, different prediction for different rate
       final seedValue =
-          (currentAsk.toInt() * 1000 + currentBid.toInt()) % 0xFFFFFFFF;
+          (correctedAsk.toInt() * 1000 + correctedBid.toInt()) % 0xFFFFFFFF;
       final random = Random(seedValue);
 
       // Process change (-100 to +100 SYP range)
@@ -40,16 +50,21 @@ class LSTMPredictionEngine {
       // Always ceil mid to the next multiple of 5
       final roundedPredictedMid = (predictedMidRaw / 5).ceil() * 5;
 
-      // Variable spread based on current market spread with a small jitter
-      final currentSpread = (currentAsk - currentBid).abs();
-      final spreadJitter = (random.nextDouble() * 20) - 10; // -10..+10
-      final predictedSpreadRaw = (currentSpread + spreadJitter).clamp(10, 150);
-      // Make half-spread a multiple of 5 so ask/bid remain multiples of 5
-      final halfSpreadRounded = ((predictedSpreadRaw / 2) / 5).ceil() * 5;
+      // Variable spread based on current market spread with realistic variation
+      final currentSpread = (correctedBid - correctedAsk).abs(); // SYP: bid > ask
+      
+      // More realistic spread variation: ±50% of current spread, minimum 15, maximum 250
+      final spreadVariation = currentSpread * 0.5; // 50% variation
+      final spreadJitter = (random.nextDouble() * spreadVariation * 2) - spreadVariation; // ±50%
+      final predictedSpreadRaw = (currentSpread + spreadJitter).clamp(15, 250);
+      
+      // Round to nearest 5 for realistic market increments
+      final predictedSpreadRounded = (predictedSpreadRaw / 5).round() * 5;
+      final halfSpreadRounded = predictedSpreadRounded / 2;
 
-      // Build ask/bid symmetrically around mid; both multiples of 5
-      final roundedPredictedAsk = roundedPredictedMid + halfSpreadRounded;
-      final roundedPredictedBid = roundedPredictedMid - halfSpreadRounded;
+      // Build ask/bid for SYP market: bid should be higher than ask
+      final roundedPredictedAsk = roundedPredictedMid - halfSpreadRounded;
+      final roundedPredictedBid = roundedPredictedMid + halfSpreadRounded;
 
       // Final validation to prevent NaN values
       if (roundedPredictedAsk.isNaN ||

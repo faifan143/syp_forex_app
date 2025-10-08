@@ -74,6 +74,7 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
   Offset? _crosshairPosition;
   bool _isDragging = false;
   double _lastDragX = 0.0;
+  double _lastScale = 1.0;
 
   // Indicators
   bool _showMA20 = true;
@@ -247,6 +248,9 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
     final newZoom = (_zoomLevel * scale).clamp(MIN_ZOOM, MAX_ZOOM);
 
     if (newZoom != oldZoom) {
+      // Provide haptic feedback for zoom actions
+      HapticFeedback.lightImpact();
+      
       // Calculate new visible candle count
       final newVisibleCount = (_visibleCandleCount / scale).round().clamp(
         MIN_VISIBLE_CANDLES,
@@ -269,6 +273,19 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
         _updatePriceRange();
       });
     }
+  }
+
+  void _handleDoubleTapZoom() {
+    // Double-tap to zoom in/out - toggle between 1x and 2x zoom
+    final targetZoom = _zoomLevel < 1.5 ? 2.0 : 1.0;
+    final centerPoint = Offset(
+      MediaQuery.of(context).size.width / 2,
+      MediaQuery.of(context).size.height / 2,
+    );
+    
+    // Provide haptic feedback for double-tap zoom
+    HapticFeedback.mediumImpact();
+    _handleZoom(targetZoom / _zoomLevel, centerPoint);
   }
 
   @override
@@ -464,40 +481,20 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
       );
     }
 
-    // Convert candles to CandleData format for custom painter
-    final List<CandleData> candleData = [];
-    for (int i = 0; i < _candles.length; i++) {
-      final candle = _candles[i];
-
-      // Add null safety checks
-      final open = candle['open'] ?? 0.0;
-      final high = candle['high'] ?? 0.0;
-      final low = candle['low'] ?? 0.0;
-      final close = candle['close'] ?? 0.0;
-
-      candleData.add(
-        CandleData(
-          x: i.toDouble(),
-          open: open,
-          high: high,
-          low: low,
-          close: close,
-          time: DateTime.now().subtract(
-            Duration(minutes: _candles.length - i - 1),
-          ),
-        ),
-      );
-    }
-
     return CustomPaint(
-      painter: CandlestickPainter(
-        candles: candleData,
+      painter: ChartPainter(
+        candles: _candles,
+        scrollOffset: _scrollOffset,
+        zoomLevel: _zoomLevel,
+        candleWidth: _candleWidth,
+        visibleCandleCount: _visibleCandleCount,
         minPrice: _minPrice,
         maxPrice: _maxPrice,
-        isDark: isDark,
         showMA20: _showMA20,
         showMA50: _showMA50,
         showVolume: _showVolume,
+        crosshairPosition: _crosshairPosition,
+        isDark: isDark,
       ),
       size: Size.infinite,
     );
@@ -510,11 +507,17 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
       onScaleStart: (details) {
         _isDragging = true;
         _lastDragX = details.focalPoint.dx;
+        _lastScale = 1.0; // Scale starts at 1.0
       },
       onScaleUpdate: (details) {
-        if (details.scale != 1.0) {
-          _handleZoom(details.scale, details.localFocalPoint);
-        } else {
+        // Handle pinch-to-zoom with better sensitivity
+        if (details.scale != _lastScale) {
+          // Calculate the scale difference for smoother zooming
+          final scaleDiff = details.scale / _lastScale;
+          _handleZoom(scaleDiff, details.localFocalPoint);
+          _lastScale = details.scale;
+        } else if (details.focalPoint.dx != _lastDragX) {
+          // Handle horizontal scrolling
           final delta = details.focalPoint.dx - _lastDragX;
           _handleScroll(delta);
           _lastDragX = details.focalPoint.dx;
@@ -536,6 +539,14 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
             });
           }
         });
+      },
+      // Add double-tap to zoom functionality
+      onDoubleTap: () {
+        _handleDoubleTapZoom();
+      },
+      // Add long press to reset zoom
+      onLongPress: () {
+        _resetView();
       },
       child: Container(
         color: isDark ? const Color(0xFF0A0E17) : const Color(0xFFF5F5F5),
@@ -661,6 +672,13 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
                 child: _buildZoomControls(),
               ),
             ),
+
+            // Zoom level indicator
+            Positioned(
+              right: AXIS_WIDTH + 8,
+              top: 8,
+              child: _buildZoomIndicator(),
+            ),
           ],
         ),
       ),
@@ -738,38 +756,96 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
     );
   }
 
+  Widget _buildZoomIndicator() {
+    final isDark = _themeController.isDarkMode;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: (isDark ? const Color(0xFF1A1F26) : const Color(0xFFF8F9FA)).withOpacity(0.9),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${(_zoomLevel * 100).toStringAsFixed(0)}%',
+            style: TextStyle(
+              color: isDark ? Colors.white70 : Colors.black87,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            'Zoom',
+            style: TextStyle(
+              color: isDark ? Colors.white54 : Colors.black54,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildZoomControls() {
+    final isDark = _themeController.isDarkMode;
+    final canZoomIn = _zoomLevel < MAX_ZOOM;
+    final canZoomOut = _zoomLevel > MIN_ZOOM;
+    
     return Column(
       children: [
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1F26).withOpacity(0.8),
-            borderRadius: BorderRadius.circular(6),
+            color: (isDark ? const Color(0xFF1A1F26) : const Color(0xFFF8F9FA)).withOpacity(0.9),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
+              width: 1,
+            ),
           ),
           child: Column(
             children: [
               IconButton(
-                icon: const Icon(Icons.add, color: Colors.white70, size: 18),
-                onPressed: () => _handleZoom(
-                  1.2,
-                  Offset(MediaQuery.of(context).size.width / 2, 200),
+                icon: Icon(
+                  Icons.zoom_in,
+                  color: canZoomIn 
+                    ? (isDark ? Colors.white70 : Colors.black87)
+                    : (isDark ? Colors.white30 : Colors.black26),
+                  size: 20,
                 ),
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: canZoomIn ? () => _handleZoom(
+                  1.3,
+                  Offset(MediaQuery.of(context).size.width / 2, 200),
+                ) : null,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                tooltip: 'Zoom In',
               ),
               Container(
-                width: 24,
+                width: 28,
                 height: 1,
-                color: Colors.white.withOpacity(0.1),
+                color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
               ),
               IconButton(
-                icon: const Icon(Icons.remove, color: Colors.white70, size: 18),
-                onPressed: () => _handleZoom(
-                  0.8,
-                  Offset(MediaQuery.of(context).size.width / 2, 200),
+                icon: Icon(
+                  Icons.zoom_out,
+                  color: canZoomOut 
+                    ? (isDark ? Colors.white70 : Colors.black87)
+                    : (isDark ? Colors.white30 : Colors.black26),
+                  size: 20,
                 ),
-                padding: const EdgeInsets.all(4),
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: canZoomOut ? () => _handleZoom(
+                  0.7,
+                  Offset(MediaQuery.of(context).size.width / 2, 200),
+                ) : null,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                tooltip: 'Zoom Out',
               ),
             ],
           ),
@@ -777,14 +853,45 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1F26).withOpacity(0.8),
-            borderRadius: BorderRadius.circular(6),
+            color: (isDark ? const Color(0xFF1A1F26) : const Color(0xFFF8F9FA)).withOpacity(0.9),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
+              width: 1,
+            ),
           ),
           child: IconButton(
-            icon: const Icon(Icons.fit_screen, color: Colors.white70, size: 18),
+            icon: Icon(
+              Icons.fit_screen,
+              color: isDark ? Colors.white70 : Colors.black87,
+              size: 20,
+            ),
             onPressed: _resetView,
-            padding: const EdgeInsets.all(4),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: const EdgeInsets.all(6),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            tooltip: 'Reset View',
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: (isDark ? const Color(0xFF1A1F26) : const Color(0xFFF8F9FA)).withOpacity(0.9),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
+              width: 1,
+            ),
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.center_focus_strong,
+              color: isDark ? Colors.white70 : Colors.black87,
+              size: 20,
+            ),
+            onPressed: _handleDoubleTapZoom,
+            padding: const EdgeInsets.all(6),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            tooltip: 'Double-tap Zoom',
           ),
         ),
       ],
@@ -925,6 +1032,9 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
   }
 
   void _resetView() {
+    // Provide haptic feedback for reset
+    HapticFeedback.heavyImpact();
+    
     setState(() {
       _zoomLevel = 1.0;
       _visibleCandleCount = 100;
