@@ -274,8 +274,8 @@ class PaperTradingProvider extends GetxController {
       }
     }
 
-    // Start timer to advance through M1 data
-    _simulationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    // Start timer to advance through M1 data (5 seconds for balanced simulation)
+    _simulationTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _advanceSimulationData();
     });
   }
@@ -534,6 +534,12 @@ class PaperTradingProvider extends GetxController {
       return false;
     }
 
+    // Prevent positions from being closed immediately after creation (within 10 seconds)
+    final timeSinceOpen = DateTime.now().difference(position.openTime);
+    if (timeSinceOpen.inSeconds < 10) {
+      return false;
+    }
+
     bool shouldClose = false;
     String reason = '';
 
@@ -555,9 +561,6 @@ class PaperTradingProvider extends GetxController {
         shouldClose = true;
         reason = 'Take Profit Hit';
       }
-    }
-
-    if (shouldClose) {
     }
 
     return shouldClose;

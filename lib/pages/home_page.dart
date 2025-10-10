@@ -16,7 +16,10 @@ class _HomePageState extends State<HomePage> {
     // Load forex dashboard data when page loads
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final forexProvider = Get.find<ForexProvider>();
+      // Force refresh to bypass cache and get real API data
+      print('HomePage: Loading forex dashboard...');
       await forexProvider.loadForexDashboard(forceRefresh: true);
+      print('HomePage: Dashboard loading completed');
     });
   }
 

@@ -85,12 +85,14 @@ class ForexDataService {
     _requestCount++;
   }
 
-  Future<Map<String, dynamic>?> getAllRates() async {
+  Future<Map<String, dynamic>?> getAllRates({bool forceRefresh = false}) async {
     try {
-      // Check cache first
-      final cachedRates = await _cacheManager.getCachedExchangeRates();
-      if (cachedRates != null) {
-        return cachedRates;
+      // Check cache first (unless force refresh is requested)
+      if (!forceRefresh) {
+        final cachedRates = await _cacheManager.getCachedExchangeRates();
+        if (cachedRates != null) {
+          return cachedRates;
+        }
       }
 
       await _rateLimitCheck();
@@ -122,20 +124,18 @@ class ForexDataService {
     String toCurrency,
   ) async {
     try {
-      // Use enhanced calculator for high-volatility pairs
-      if ((fromCurrency == 'USD' && (toCurrency == 'TRY' || toCurrency == 'CNY' || toCurrency == 'CNH')) ||
-          (toCurrency == 'USD' && (fromCurrency == 'TRY' || fromCurrency == 'CNY' || fromCurrency == 'CNH'))) {
-        final enhancedRate = await EnhancedForexCalculator.getEnhancedRealTimeRate(fromCurrency, toCurrency);
-        if (enhancedRate != null) {
-          return enhancedRate;
-        }
-        // Fallback to standard method if enhanced fails
-      }
+      // Skip enhanced calculator - use raw API data directly
+      // This ensures we get the real market rates without artificial adjustments
 
-      final allRatesData = await getAllRates();
+      final allRatesData = await getAllRates(forceRefresh: true);
       if (allRatesData == null) return null;
 
       final rates = allRatesData['rates'] as Map<String, dynamic>;
+      
+      // Debug logging for TRY and CNY
+      if (toCurrency == 'TRY' || toCurrency == 'CNY' || toCurrency == 'CNH') {
+        print('Raw API data for $toCurrency: ${rates[toCurrency]}');
+      }
 
       // Calculate the exchange rate
       double rate;
@@ -301,13 +301,21 @@ class ForexDataService {
   Future<ForexApiResponse> getDashboard() async {
     final currenciesData = <CurrencyData>[];
 
+    print('ForexDataService: Processing ${_forexPairs.length} currencies: ${_forexPairs.keys.toList()}');
+
     for (final currency in _forexPairs.keys) {
       try {
+        print('ForexDataService: Processing currency: $currency');
         final currencyData = await getCurrencyDataWithPredictions(currency);
         if (currencyData != null) {
+          print('ForexDataService: Got data for $currency: ${currencyData.currentValue}');
           currenciesData.add(currencyData);
-        } else {}
-      } catch (e) {}
+        } else {
+          print('ForexDataService: No data for $currency');
+        }
+      } catch (e) {
+        print('ForexDataService: Error processing $currency: $e');
+      }
     }
 
     return ForexApiResponse(

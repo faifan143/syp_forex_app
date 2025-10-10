@@ -4,6 +4,7 @@ import 'dart:async';
 import '../models/forex_models.dart';
 import '../services/market_simulation_service.dart';
 import '../services/forex_dashboard_api_service.dart';
+import '../services/forex_data_processor.dart';
 
 class ForexProvider extends GetxController {
   String _selectedPair = 'EUR/USD';
@@ -27,6 +28,7 @@ class ForexProvider extends GetxController {
   // Services
   final MarketSimulationService _marketService = MarketSimulationService();
   final ForexDashboardApiService _dashboardService = ForexDashboardApiService();
+  final ForexDataService _dataService = ForexDataService();
 
   // Getters
   String get selectedPair => _selectedPair;
@@ -161,30 +163,36 @@ class ForexProvider extends GetxController {
 
     try {
       developer.log('Loading forex dashboard...', name: 'ForexProvider');
+      developer.log('Cache valid: $isDashboardCacheValid', name: 'ForexProvider');
+      developer.log('Force refresh: $forceRefresh', name: 'ForexProvider');
 
-      // Add timeout wrapper for the entire operation
-      final dashboardResponse = await _dashboardService
-          .getForexDashboard()
-          .timeout(
-            const Duration(seconds: 90), // 90 seconds total timeout
-            onTimeout: () {
-              throw TimeoutException(
-                'Dashboard request timed out after 90 seconds',
-                const Duration(seconds: 90),
-              );
-            },
-          );
+      // Skip Flask server and use external APIs directly
+      ForexDashboardResponse? dashboardResponse;
+      
+      developer.log('Skipping Flask server, using external APIs directly', name: 'ForexProvider');
+      dashboardResponse = await _loadFromExternalApis();
+      developer.log('_loadFromExternalApis() returned: ${dashboardResponse != null}', name: 'ForexProvider');
 
-      _dashboardData = dashboardResponse;
-      _lastDashboardFetch = DateTime.now(); // Update cache timestamp
+      if (dashboardResponse != null) {
+        _dashboardData = dashboardResponse;
+        _lastDashboardFetch = DateTime.now(); // Update cache timestamp
 
-      // Update simulation base prices with real dashboard data
-      _updateSimulationWithDashboardData(dashboardResponse);
+        // Update simulation base prices with real dashboard data
+        _updateSimulationWithDashboardData(dashboardResponse);
 
-      developer.log(
-        'Dashboard loaded: ${dashboardResponse.currencies.length} currencies',
-        name: 'ForexProvider',
-      );
+        developer.log(
+          'Dashboard loaded: ${dashboardResponse.currencies.length} currencies',
+          name: 'ForexProvider',
+        );
+        
+        // Log each currency for debugging
+        for (final currency in dashboardResponse.currencies) {
+          developer.log('Currency: ${currency.pair} = ${currency.currentValue}', name: 'ForexProvider');
+        }
+      } else {
+        throw Exception('Failed to load data from external APIs');
+      }
+      
       update();
     } catch (e) {
       _dashboardError = 'Failed to load dashboard: $e';
@@ -192,6 +200,50 @@ class ForexProvider extends GetxController {
     } finally {
       _isLoadingDashboard = false;
       update();
+    }
+  }
+
+  // Load data directly from external APIs when Flask server is unavailable
+  Future<ForexDashboardResponse?> _loadFromExternalApis() async {
+    try {
+      developer.log('Loading data from external APIs...', name: 'ForexProvider');
+      
+      // Get dashboard data from external APIs
+      final apiResponse = await _dataService.getDashboard();
+      
+      developer.log('External API response: ${apiResponse.currencies.length} currencies', name: 'ForexProvider');
+      
+      // Convert to ForexDashboardResponse format
+      final currencies = apiResponse.currencies.map((currencyData) {
+        developer.log('Currency: ${currencyData.pair} = ${currencyData.currentValue}', name: 'ForexProvider');
+        return Currency(
+          currency: currencyData.currency,
+          pair: currencyData.pair,
+          currentValue: currencyData.currentValue,
+          tomorrowChange: currencyData.tomorrowChange,
+          tomorrowChangePercent: currencyData.tomorrowChangePercent,
+          tomorrowPrediction: currencyData.tomorrowPrediction,
+          tomorrowTrend: currencyData.tomorrowTrend,
+          weekChange: currencyData.weekChange,
+          weekChangePercent: currencyData.weekChangePercent,
+          weekPrediction: currencyData.weekPrediction,
+          weekTrend: currencyData.weekTrend,
+          forecast7Days: currencyData.forecast7Days,
+          lastRefreshed: currencyData.lastRefreshed,
+          timeZone: currencyData.timeZone,
+          dataSource: currencyData.dataSource,
+        );
+      }).toList();
+      
+      return ForexDashboardResponse(
+        status: apiResponse.status,
+        timestamp: apiResponse.timestamp,
+        currencies: currencies,
+        totalCurrencies: apiResponse.totalCurrencies,
+      );
+    } catch (e) {
+      developer.log('Error loading from external APIs: $e', name: 'ForexProvider');
+      return null;
     }
   }
 

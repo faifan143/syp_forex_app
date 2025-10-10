@@ -193,35 +193,55 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
       currentPrice = _candles.last['close']!;
     }
 
-    // Focus on recent candles (last 50) for better visualization
-    final recentCandles = _candles.length > 50
-        ? _candles.sublist(_candles.length - 50)
-        : _candles;
+    // Calculate visible candle range based on scroll and zoom
+    final startIdx = _scrollOffset.floor().clamp(0, _candles.length - 1);
+    final endIdx = (startIdx + _visibleCandleCount).clamp(0, _candles.length);
+    
+    // Get visible candles for price range calculation
+    final visibleCandles = _candles.sublist(startIdx, endIdx);
+    
+    // If no visible candles, use recent candles as fallback
+    final candlesForRange = visibleCandles.isNotEmpty 
+        ? visibleCandles 
+        : (_candles.length > 50 ? _candles.sublist(_candles.length - 50) : _candles);
 
-    // Find min/max from recent candles
+    // Find min/max from visible candles
     double minPrice = double.infinity;
     double maxPrice = double.negativeInfinity;
 
-    for (final candle in recentCandles) {
+    for (final candle in candlesForRange) {
       minPrice = minPrice < candle['low']! ? minPrice : candle['low']!;
       maxPrice = maxPrice > candle['high']! ? maxPrice : candle['high']!;
     }
 
-    // Ensure current price is included
-    minPrice = minPrice < currentPrice ? minPrice : currentPrice;
-    maxPrice = maxPrice > currentPrice ? maxPrice : currentPrice;
+    // Ensure current price is included if it's within visible range
+    if (visibleCandles.isNotEmpty) {
+      minPrice = minPrice < currentPrice ? minPrice : currentPrice;
+      maxPrice = maxPrice > currentPrice ? maxPrice : currentPrice;
+    }
 
-    // Add a small buffer
-    final buffer = (maxPrice - minPrice) * 0.1; // 10% buffer
+    // Add adaptive buffer based on price range
+    final priceRange = maxPrice - minPrice;
+    final buffer = priceRange > 0 ? (priceRange * 0.05).clamp(0.0001, 0.01) : 0.01; // 5% buffer, min 0.0001, max 0.01
+
+    // Ensure minimum price range for visibility
+    final minPriceRange = 0.001; // Minimum 0.1% range
+    if (priceRange < minPriceRange) {
+      final center = (maxPrice + minPrice) / 2;
+      minPrice = center - minPriceRange / 2;
+      maxPrice = center + minPriceRange / 2;
+    }
 
     // Check for significant price range changes
     if (_lastMinPrice != 0.0 && _lastMaxPrice != 0.0) {
       final minChange = (minPrice - buffer - _lastMinPrice).abs();
       final maxChange = (maxPrice + buffer - _lastMaxPrice).abs();
       final significantChange =
-          minChange > 0.01 || maxChange > 0.01; // 1% change threshold
+          minChange > 0.001 || maxChange > 0.001; // 0.1% change threshold
 
-      if (significantChange) {}
+      if (significantChange) {
+        // Price range changed significantly, update
+      }
     }
 
     setState(() {
@@ -237,8 +257,18 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
 
   void _handleScroll(double delta) {
     setState(() {
-      _scrollOffset = (_scrollOffset - delta / (_candleWidth * _zoomLevel))
-          .clamp(0, (_candles.length - _visibleCandleCount).toDouble());
+      // Calculate actual candle spacing for better scroll sensitivity
+      final actualCandleWidth = (_candleWidth * _zoomLevel).clamp(2.0, 20.0);
+      final candleSpacing = actualCandleWidth + 1.0;
+      
+      // Adjust scroll sensitivity based on zoom level
+      final scrollSensitivity = 1.0 / candleSpacing;
+      final newScrollOffset = _scrollOffset - (delta * scrollSensitivity);
+      
+      _scrollOffset = newScrollOffset.clamp(
+        0, 
+        (_candles.length - _visibleCandleCount).toDouble().clamp(0, _candles.length.toDouble())
+      );
       _updatePriceRange();
     });
   }
@@ -251,24 +281,27 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
       // Provide haptic feedback for zoom actions
       HapticFeedback.lightImpact();
       
-      // Calculate new visible candle count
-      final newVisibleCount = (_visibleCandleCount / scale).round().clamp(
+      // Calculate new visible candle count based on zoom level
+      final baseVisibleCount = 100;
+      final newVisibleCount = (baseVisibleCount / newZoom).round().clamp(
         MIN_VISIBLE_CANDLES,
         MAX_VISIBLE_CANDLES,
       );
 
+      // Calculate actual candle spacing for focal point calculation
+      final oldCandleSpacing = (_candleWidth * oldZoom).clamp(2.0, 20.0) + 1.0;
+      final newCandleSpacing = (_candleWidth * newZoom).clamp(2.0, 20.0) + 1.0;
+
       // Adjust scroll to keep focal point stable
-      final focalCandle =
-          _scrollOffset + focalPoint.dx / (_candleWidth * oldZoom);
-      final newScrollOffset =
-          focalCandle - focalPoint.dx / (_candleWidth * newZoom);
+      final focalCandle = _scrollOffset + focalPoint.dx / oldCandleSpacing;
+      final newScrollOffset = focalCandle - focalPoint.dx / newCandleSpacing;
 
       setState(() {
         _zoomLevel = newZoom;
         _visibleCandleCount = newVisibleCount;
         _scrollOffset = newScrollOffset.clamp(
           0,
-          (_candles.length - _visibleCandleCount).toDouble(),
+          (_candles.length - _visibleCandleCount).toDouble().clamp(0, _candles.length.toDouble()),
         );
         _updatePriceRange();
       });
@@ -1045,6 +1078,23 @@ class _FullscreenChartPageState extends State<FullscreenChartPage>
       _updatePriceRange();
     });
   }
+
+  // Initialize chart with proper viewport settings
+  void _initializeChartViewport() {
+    if (_candles.isEmpty) return;
+    
+    // Set initial scroll to show latest candles
+    _scrollOffset = (_candles.length - _visibleCandleCount).toDouble().clamp(
+      0,
+      _candles.length.toDouble(),
+    );
+    
+    // Ensure proper initial zoom and candle count
+    _zoomLevel = 1.0;
+    _visibleCandleCount = 100;
+    
+    _updatePriceRange();
+  }
 }
 
 // Chart Painter
@@ -1103,24 +1153,31 @@ class ChartPainter extends CustomPainter {
   void _drawGrid(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = isDark
-          ? Colors.white.withOpacity(0.03)
+          ? Colors.white.withOpacity(0.05)
           : Colors.black.withOpacity(0.1)
-      ..strokeWidth = 1;
+      ..strokeWidth = 0.5;
 
-    // Horizontal lines
-    for (int i = 1; i < 10; i++) {
-      final y = size.height * (i / 10);
+    // Add margins for grid
+    final margin = 5.0;
+    final availableHeight = size.height - (2 * margin);
+
+    // Horizontal lines with proper margins
+    for (int i = 0; i <= 10; i++) {
+      final y = margin + availableHeight * (i / 10);
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
 
-    // Vertical lines
-    final visibleWidth = candleWidth * zoomLevel * visibleCandleCount;
-    final candleSpacing = candleWidth * zoomLevel;
+    // Vertical lines based on actual candle spacing
+    final actualCandleWidth = (candleWidth * zoomLevel).clamp(2.0, 20.0);
+    final candleSpacing = actualCandleWidth + 1.0;
+    final startIdx = scrollOffset.floor().clamp(0, candles.length - 1);
+    final endIdx = (startIdx + visibleCandleCount).clamp(0, candles.length);
 
-    for (int i = 0; i < visibleCandleCount; i += 10) {
-      final x = i * candleSpacing;
-      if (x < size.width) {
-        canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    // Draw vertical lines every 5 candles for better readability
+    for (int i = startIdx; i < endIdx; i += 5) {
+      final x = (i - scrollOffset) * candleSpacing;
+      if (x >= 0 && x <= size.width) {
+        canvas.drawLine(Offset(x, margin), Offset(x, size.height - margin), paint);
       }
     }
   }
@@ -1135,12 +1192,17 @@ class ChartPainter extends CustomPainter {
     final startIdx = scrollOffset.floor().clamp(0, candles.length - 1);
     final endIdx = (startIdx + visibleCandleCount).clamp(0, candles.length);
 
+    // Calculate actual candle width and spacing for better viewport utilization
+    final actualCandleWidth = (candleWidth * zoomLevel).clamp(2.0, 20.0);
+    final candleSpacing = actualCandleWidth + 1.0; // Small gap between candles
+
     int drawnCount = 0;
     for (int i = startIdx; i < endIdx && i < candles.length; i++) {
       final candle = candles[i];
-      final x = (i - scrollOffset) * candleWidth * zoomLevel;
+      final x = (i - scrollOffset) * candleSpacing;
 
-      if (x < -candleWidth * zoomLevel || x > size.width) continue;
+      // Skip candles outside viewport with proper bounds checking
+      if (x < -actualCandleWidth || x > size.width + actualCandleWidth) continue;
 
       final open = candle['open']!;
       final high = candle['high']!;
@@ -1149,63 +1211,94 @@ class ChartPainter extends CustomPainter {
 
       final isGreen = close >= open;
 
-      // Calculate Y positions (match Y-axis: higher prices at top)
-      // Simplified calculation: map price range to 0-height range
+      // Calculate Y positions with proper bounds checking
+      final margin = 5.0; // Top and bottom margin
+      final availableHeight = size.height - (2 * margin);
+      
       final priceRatio = (open - minPrice) / priceRange;
-      final yOpen = size.height * (1 - priceRatio);
+      final yOpen = margin + availableHeight * (1 - priceRatio);
 
       final closeRatio = (close - minPrice) / priceRange;
-      final yClose = size.height * (1 - closeRatio);
+      final yClose = margin + availableHeight * (1 - closeRatio);
 
       final highRatio = (high - minPrice) / priceRange;
-      final yHigh = size.height * (1 - highRatio);
+      final yHigh = margin + availableHeight * (1 - highRatio);
 
       final lowRatio = (low - minPrice) / priceRange;
-      final yLow = size.height * (1 - lowRatio);
+      final yLow = margin + availableHeight * (1 - lowRatio);
 
-      if (drawnCount < 2) {
-        // Only log first 2 candles to avoid spam
-      }
+      // Clamp Y positions to stay within bounds
+      final clampedYHigh = yHigh.clamp(margin, size.height - margin);
+      final clampedYLow = yLow.clamp(margin, size.height - margin);
+      final clampedYOpen = yOpen.clamp(margin, size.height - margin);
+      final clampedYClose = yClose.clamp(margin, size.height - margin);
+
       drawnCount++;
 
-      // Draw wick
+      // Draw wick (high-low line) with improved visibility
       final wickPaint = Paint()
         ..color = isGreen
-            ? Colors.green.withOpacity(0.8)
-            : Colors.red.withOpacity(0.8)
-        ..strokeWidth = 1;
+            ? Colors.green.withOpacity(0.9)
+            : Colors.red.withOpacity(0.9)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round;
 
+      final wickX = x + actualCandleWidth / 2;
       canvas.drawLine(
-        Offset(x + candleWidth * zoomLevel / 2, yHigh),
-        Offset(x + candleWidth * zoomLevel / 2, yLow),
+        Offset(wickX, clampedYHigh),
+        Offset(wickX, clampedYLow),
         wickPaint,
       );
 
-      // Draw body
+      // Draw body with improved rendering
       final bodyPaint = Paint()
         ..color = isGreen ? Colors.green : Colors.red
         ..style = PaintingStyle.fill;
 
-      final bodyTop = yOpen < yClose ? yOpen : yClose;
-      final bodyHeight = (yClose - yOpen).abs();
+      final bodyTop = clampedYOpen < clampedYClose ? clampedYOpen : clampedYClose;
+      final bodyHeight = (clampedYClose - clampedYOpen).abs();
 
       // Ensure minimum body height for visibility
-      final minBodyHeight = 0.5;
+      final minBodyHeight = 1.0;
       final actualBodyHeight = bodyHeight < minBodyHeight
           ? minBodyHeight
           : bodyHeight;
 
+      // Calculate body width with padding
+      final bodyWidth = (actualCandleWidth * 0.7).clamp(2.0, 15.0);
+      final bodyX = x + (actualCandleWidth - bodyWidth) / 2;
+
+      // Draw body rectangle with rounded corners
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(
-            x + 1,
+            bodyX,
             bodyTop,
-            candleWidth * zoomLevel - 2,
+            bodyWidth,
             actualBodyHeight,
           ),
           const Radius.circular(1),
         ),
         bodyPaint,
+      );
+
+      // Draw body outline for better definition
+      final outlinePaint = Paint()
+        ..color = isGreen ? Colors.green.shade700 : Colors.red.shade700
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5;
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            bodyX,
+            bodyTop,
+            bodyWidth,
+            actualBodyHeight,
+          ),
+          const Radius.circular(1),
+        ),
+        outlinePaint,
       );
     }
   }
@@ -1216,13 +1309,22 @@ class ChartPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
 
     final path = Path();
     bool firstPoint = true;
 
     final startIdx = scrollOffset.floor();
     final endIdx = (startIdx + visibleCandleCount + 1).clamp(0, candles.length);
+
+    // Calculate actual candle spacing
+    final actualCandleWidth = (candleWidth * zoomLevel).clamp(2.0, 20.0);
+    final candleSpacing = actualCandleWidth + 1.0;
+
+    // Add margins for MA calculation
+    final margin = 5.0;
+    final availableHeight = size.height - (2 * margin);
 
     for (int i = startIdx; i < endIdx && i < candles.length; i++) {
       if (i < period - 1) continue;
@@ -1233,16 +1335,19 @@ class ChartPainter extends CustomPainter {
       }
       final ma = sum / period;
 
-      final x = (i - scrollOffset) * candleWidth * zoomLevel;
-      final y = size.height * (1 - (ma - minPrice) / (maxPrice - minPrice));
+      final x = (i - scrollOffset) * candleSpacing + actualCandleWidth / 2;
+      final y = margin + availableHeight * (1 - (ma - minPrice) / (maxPrice - minPrice));
 
-      if (x < -candleWidth || x > size.width) continue;
+      // Clamp Y position to stay within bounds
+      final clampedY = y.clamp(margin, size.height - margin);
+
+      if (x < -actualCandleWidth || x > size.width + actualCandleWidth) continue;
 
       if (firstPoint) {
-        path.moveTo(x, y);
+        path.moveTo(x, clampedY);
         firstPoint = false;
       } else {
-        path.lineTo(x, y);
+        path.lineTo(x, clampedY);
       }
     }
 
@@ -1253,17 +1358,20 @@ class ChartPainter extends CustomPainter {
     if (crosshairPosition == null) return;
 
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
+      ..color = Colors.white.withOpacity(0.4)
       ..strokeWidth = 0.5;
 
-    // Vertical line
+    // Add margins for crosshair
+    final margin = 5.0;
+
+    // Vertical line with margins
     canvas.drawLine(
-      Offset(crosshairPosition!.dx, 0),
-      Offset(crosshairPosition!.dx, size.height),
+      Offset(crosshairPosition!.dx, margin),
+      Offset(crosshairPosition!.dx, size.height - margin),
       paint,
     );
 
-    // Horizontal line
+    // Horizontal line with margins
     canvas.drawLine(
       Offset(0, crosshairPosition!.dy),
       Offset(size.width, crosshairPosition!.dy),
